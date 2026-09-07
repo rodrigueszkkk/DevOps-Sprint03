@@ -2,13 +2,28 @@
 # =====================================================================
 # SCRIPT 04: DEPLOY DA API .NET NO ACI E INTEGRAÇÃO COM BANCO
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-RM="${1:-561760}"
-LOCATION="${2:-eastus}"
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório."
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    LOCATION="$2"
+else
+    read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
+    LOCATION="${LOCATION:-eastus}"
+fi
+
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 ACR_NAME="acrpethealthrm${RM}"
 KEY_VAULT_NAME="kv-pethealth-rm${RM}"
@@ -21,7 +36,7 @@ echo "ACI API Name: $ACI_API_NAME | DNS Label: $DNS_LABEL"
 echo "=================================================================="
 
 # 1. Recuperar credenciais do ACR e dados de conexão do MySQL
-echo "Recuperando segredos e dados de conexão..."
+echo "Recuperando segredos e dados de conexão do Key Vault..."
 ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
 ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
 ACR_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-password" --query value -o tsv)

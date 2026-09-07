@@ -2,16 +2,30 @@
 =====================================================================
 SCRIPT MESTRE POWERSHELL: DEPLOY COMPLETO AZURE CLI (ACR + ACI)
 FIAP - DevOps Tools & Cloud Computing - Sprint 3
-RM: 561760
 =====================================================================
 #>
 
 param(
-    [string]$RM = "561760",
-    [string]$Location = "eastus"
+    [Parameter(Mandatory=$false)]
+    [string]$RM,
+    [Parameter(Mandatory=$false)]
+    [string]$Location
 )
 
 $ErrorActionPreference = "Stop"
+
+if (-not $RM) {
+    $RM = Read-Host "Informe seu RM (somente números)"
+}
+if (-not $RM) {
+    Write-Error "ERRO: O RM é obrigatório para nomear os recursos."
+    exit 1
+}
+
+if (-not $Location) {
+    $Location = Read-Host "Informe a região da Azure [padrão: eastus]"
+    if (-not $Location) { $Location = "eastus" }
+}
 
 $ResourceGroup = "rg-pethealth-rm$RM"
 $StorageAccount = "storagerm$RM"
@@ -26,8 +40,18 @@ $ApiDns = "api-rm$RM"
 Write-Host "==================================================================" -ForegroundColor Cyan
 Write-Host "  FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3" -ForegroundColor Cyan
 Write-Host "  DEPLOY 100% AZURE CLI (ACR + ACI) - POWERSHELL" -ForegroundColor Cyan
-Write-Host "  RM: $RM | Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
+Write-Host "  Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
 Write-Host "==================================================================" -ForegroundColor Cyan
+
+# Leitura segura das senhas
+$mysqlRootSec = Read-Host "Defina a senha de ROOT do MySQL para o Key Vault" -AsSecureString
+$mysqlUserSec = Read-Host "Defina a senha do USUÁRIO da aplicação para o Key Vault" -AsSecureString
+
+$bstrRoot = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlRootSec)
+$plainRoot = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrRoot)
+
+$bstrUser = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlUserSec)
+$plainUser = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrUser)
 
 # 1. Registrar Providers
 Write-Host "`n[1/6] Registrando Resource Providers..." -ForegroundColor Yellow
@@ -57,8 +81,8 @@ az keyvault set-policy --name $KeyVaultName --resource-group $ResourceGroup --up
 
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-database" --value "pethealth_db" -o none
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-user" --value "pethealth_user" -o none
-az keyvault secret set --vault-name $KeyVaultName --name "mysql-password" --value "PetHealthPass@2026" -o none
-az keyvault secret set --vault-name $KeyVaultName --name "mysql-root-password" --value "PetHealth@2026" -o none
+az keyvault secret set --vault-name $KeyVaultName --name "mysql-password" --value $plainUser -o none
+az keyvault secret set --vault-name $KeyVaultName --name "mysql-root-password" --value $plainRoot -o none
 
 # 5. ACR e Build das Imagens
 Write-Host "`n[5/6] Criando ACR e compilando imagens na Azure..." -ForegroundColor Yellow
@@ -105,14 +129,14 @@ az container create `
     --environment-variables `
         MYSQL_DATABASE="pethealth_db" `
         MYSQL_USER="pethealth_user" `
-        MYSQL_PASSWORD="PetHealthPass@2026" `
-        MYSQL_ROOT_PASSWORD="PetHealth@2026" `
+        MYSQL_PASSWORD="$plainUser" `
+        MYSQL_ROOT_PASSWORD="$plainRoot" `
     --restart-policy Always
 
 Start-Sleep -Seconds 15
 
 $mysqlFqdn = az container show --resource-group $ResourceGroup --name $AciMysqlName --query ipAddress.fqdn -o tsv
-$connString = "Server=$mysqlFqdn;Port=3306;Database=pethealth_db;User=pethealth_user;Password=PetHealthPass@2026;"
+$connString = "Server=$mysqlFqdn;Port=3306;Database=pethealth_db;User=pethealth_user;Password=$plainUser;"
 az keyvault secret set --vault-name $KeyVaultName --name "connection-string" --value $connString -o none
 
 # Deploy da API no ACI

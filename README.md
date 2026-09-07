@@ -11,7 +11,7 @@ Repositório acadêmico desenvolvido para a **3ª Sprint da disciplina DevOps To
 
 ## 👥 Identificação do Aluno / Grupo
 
-- **Nome Completo:** [Nome do Integrante] | **RM:** 561760
+- **Nome Completo:** [Nome do Integrante] | **RM:** [Seu RM]
 - **Repositório GitHub:** [https://github.com/rodrigueszkkk/DevOps-Sprint03.git](https://github.com/rodrigueszkkk/DevOps-Sprint03.git)
 - **Vídeo Demonstrativo no YouTube:** [Link do Vídeo](https://www.youtube.com/watch?v=SEU_ID_DO_VIDEO)
 
@@ -33,27 +33,27 @@ Repositório acadêmico desenvolvido para a **3ª Sprint da disciplina DevOps To
 
 ## 1. Descrição da Solução
 
-O **PetHealthEcosystem** é uma API RESTful de alta performance desenvolvida em **ASP.NET Core (.NET 8)** voltada à gestão clínica e operacional de pacientes em hospitais e clínicas veterinárias.
+O **PetHealthEcosystem** é uma API RESTful desenvolvida em **ASP.NET Core (.NET 8)** voltada à gestão clínica e operacional de pacientes em hospitais e clínicas veterinárias.
 
 A plataforma gerencia o ciclo completo de assistência animal:
 - **Cadastro e Triagem de Pets:** Identificação do paciente (nome, raça, idade, tutor responsável e sinalização para cuidados pós-operatórios).
-- **Prontuário e Histórico Clínico (`MedicalRecords`):** Registro cronológico de consultas, diagnósticos veterinários, procedimentos cirúrgicos e prescrições terapêuticas associadas ao animal.
+- **Prontuário e Histórico Clínico (`MedicalRecords`):** Registro cronológico de consultas, diagnósticos veterinários, procedimentos cirúrgicos e prescrições terapêuticas associadas ao animal (Relacionamento 1:N com integridade referencial).
 - **Observabilidade Integrada:** Health Checks automatizados (`/health`, `/health/ready`, `/health/live`), métricas com OpenTelemetry e logging estruturado com Serilog.
 
 ---
 
 ## 2. Benefícios para o Negócio
 
-1. **Centralização do Histórico Clínico do Paciente:** Elimina prontuários em papel e sistemas legados fragmentados, garantindo que qualquer profissional veterinário da equipe tenha acesso imediato a cirurgias prévias e alergias do animal.
-2. **Segurança no Pós-Operatório:** A sinalização automática de `NeedsPostOpCare` viabiliza monitoramento prioritário para animais recém-operados, reduzindo drasticamente intercorrências pós-cirúrgicas.
-3. **Alta Disponibilidade e Escalabilidade em Nuvem:** A execução em Azure Container Instances (ACI) combinada a persistência em Azure File Share permite provisionamento sob demanda com custos reduzidos (Serverless Containers).
-4. **Conformidade com LGPD e Segurança Operacional:** Armazenamento seguro de credenciais em Azure Key Vault, eliminando segredos no código-fonte e garantindo isolamento através de contêineres sem privilégios administrativos (`non-root`).
+1. **Centralização do Histórico Clínico do Paciente:** Elimina prontuários em papel e sistemas fragmentados, permitindo que a equipe veterinária consulte diagnósticos prévios e condutas terapêuticas em tempo real.
+2. **Segurança no Pós-Operatório:** A flag `NeedsPostOpCare` viabiliza monitoramento prioritário para animais recém-operados, reduzindo o risco de intercorrências pós-cirúrgicas.
+3. **Escalabilidade Serverless com Custos Otimizados:** A arquitetura em contêineres gerenciados (ACI) combinada a volumes persistentes (Azure Files) viabiliza alta disponibilidade com cobrança por segundo de uso, sem custos ociosos de máquinas virtuais.
+4. **Segurança e Conformidade com Boas Práticas:** Isolamento com contêiner não-root (`USER $APP_UID`), eliminação completa de senhas no repositório e segredos protegidos pelo **Azure Key Vault**.
 
 ---
 
 ## 3. Arquitetura em Nuvem Azure
 
-A arquitetura foi desenhada em conformidade estrita com as diretrizes da disciplina DevOps Tools & Cloud Computing (Aula 12 e Arquitetura de Referência da FIAP):
+A arquitetura segue rigorosamente as diretrizes da disciplina DevOps Tools & Cloud Computing (Aula 12 e Arquitetura de Referência da FIAP):
 
 ```
        +-------------------------------------------------------------------+
@@ -102,10 +102,10 @@ A arquitetura foi desenhada em conformidade estrita com as diretrizes da discipl
 ```
 
 ### Componentes Utilizados:
-- **Azure Container Registry (ACR):** Armazena com segurança as imagens Docker da aplicação .NET 8 e do banco MySQL customizado.
-- **Azure Container Instances (ACI):** Executa os contêineres sob demanda sem necessidade de gerenciar VMs ou clusters Kubernetes.
-- **Azure Key Vault:** Centraliza todas as senhas de banco, usuários e connection strings com controle de acesso RBAC.
-- **Azure Storage Account & Azure Files:** Monta volume persistente em CIFS no contêiner MySQL (`/var/lib/mysql`), garantindo que reinicializações do contêiner não causem perda de dados.
+- **Azure Container Registry (ACR):** Armazena de forma privada as imagens da aplicação .NET 8 e do banco MySQL customizado.
+- **Azure Container Instances (ACI):** Executa os contêineres sob demanda de forma serverless.
+- **Azure Key Vault:** Gerencia e armazena com criptografia senhas, usuários e a string de conexão em tempo de execução.
+- **Azure Storage Account & Azure Files:** Monta volume persistente CIFS no container MySQL (`/var/lib/mysql`), preservando os dados mesmo após reinicializações.
 
 ---
 
@@ -113,7 +113,7 @@ A arquitetura foi desenhada em conformidade estrita com as diretrizes da discipl
 
 O banco de dados relacional é estruturado em duas tabelas centrais com integridade referencial e deleção em cascata (`ON DELETE CASCADE`), definidas no arquivo [`script_bd.sql`](script_bd.sql):
 
-1. **`PETS` (Tabela Pai):**
+1. **`PETS` (Tabela Pai - CORE):**
    - `Id` (INT, PK, Auto Increment)
    - `Name` (VARCHAR(100), NOT NULL)
    - `Breed` (VARCHAR(50), NOT NULL)
@@ -122,7 +122,7 @@ O banco de dados relacional é estruturado em duas tabelas centrais com integrid
    - `NeedsPostOpCare` (BOOLEAN, NOT NULL)
    - `CreatedAt` (TIMESTAMP)
 
-2. **`MEDICAL_RECORDS` (Tabela Filha - Relacionamento 1:N):**
+2. **`MEDICAL_RECORDS` (Tabela Filha - CORE, Relacionamento 1:N):**
    - `Id` (INT, PK, Auto Increment)
    - `PetId` (INT, FK referenciando `PETS(Id)`)
    - `Description` (VARCHAR(255), NOT NULL)
@@ -135,54 +135,56 @@ O banco de dados relacional é estruturado em duas tabelas centrais com integrid
 
 ## 5. Segurança e Conformidade de Containers
 
-- **Usuário Sem Privilégios (Requisito 8.2 da Sprint):** O [`Dockerfile`](Dockerfile) utiliza a instrução `USER $APP_UID` da imagem oficial `mcr.microsoft.com/dotnet/aspnet:8.0`, executando sob o usuário `app` (UID 1654) e impedindo qualquer escalonamento de privilégios como root.
-- **Ausência de Credenciais no Código:** [`appsettings.json`](src/PetHealthEcosystem.Api/appsettings.json) não possui senhas hardcoded; as credenciais são injetadas exclusivamente em tempo de execução via Azure Key Vault e variáveis de ambiente (`ConnectionStrings__DefaultConnection`).
+- **Usuário Sem Privilégios (Requisito 8.2 da Sprint):** O [`Dockerfile`](Dockerfile) utiliza a instrução `USER $APP_UID` da imagem oficial `mcr.microsoft.com/dotnet/aspnet:8.0`, executando sob o usuário `app` (UID 1654) e bloqueando privilégios administrativos.
+- **Ausência de Credenciais no Código-Fonte:** [`appsettings.json`](src/PetHealthEcosystem.Api/appsettings.json) não possui senhas gravadas; as credenciais são injetadas estritamente em tempo de execução via Azure Key Vault e variáveis de ambiente (`ConnectionStrings__DefaultConnection`).
 
 ---
 
 ## 6. Guia de Execução Local
 
-Para testar a solução completa localmente via Docker Compose:
+Para testar localmente via Docker Compose:
 
 ```bash
-# 1. Subir a stack completa (MySQL + API .NET)
+# 1. Copiar variáveis de ambiente de exemplo
+cp .env.example .env
+
+# 2. Definir senhas locais no arquivo .env (não commitado)
+
+# 3. Subir a stack completa (MySQL + API .NET)
 docker compose up -d --build
 
-# 2. Verificar status dos containers
-docker compose ps
-
-# 3. Acessar Swagger localmente
-# Abra no navegador: http://localhost:8080/swagger
+# 4. Acessar Swagger localmente
+# http://localhost:8080/swagger
 ```
 
 ---
 
 ## 7. Guia de Deploy na Nuvem Azure (How-To Azure CLI)
 
-> **Região Padrão:** `eastus` (ou outra autorizada pela sua política: `mexicocentral`, `canadacentral`, `centralus`, `southafricanorth`).  
-> **RM:** `561760`
-
 ### Opção A: Execução Automatizada via Script Mestre
+
+Os scripts solicitam o RM, a região autorizada e as senhas do banco de forma segura via terminal:
 
 ```bash
 # Autenticar na Azure
 az login
 
-# Executar deploy completo via Bash:
-bash scripts/deploy_all.sh 561760 eastus
+# Executar deploy completo via Bash (Linux/macOS/Cloud Shell):
+bash scripts/deploy_all.sh <SEU_RM> <SUA_REGIAO>
+# Exemplo: bash scripts/deploy_all.sh 123456 eastus
 
 # Ou no Windows via PowerShell:
-.\scripts\deploy_all.ps1 -RM 561760 -Location eastus
+.\scripts\deploy_all.ps1 -RM <SEU_RM> -Location <SUA_REGIAO>
 ```
 
 ---
 
 ### Opção B: Passo a Passo Manual com Azure CLI
 
-#### 1. Definir Variáveis de Ambiente
+#### 1. Definir Variáveis
 ```bash
-RM="561760"
-LOCATION="eastus"
+RM="<SEU_RM>"
+LOCATION="<SUA_REGIAO>" # Ex: eastus
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 STORAGE_ACCOUNT="storagerm${RM}"
 FILE_SHARE="mysql-data-share"
@@ -192,55 +194,64 @@ ACI_MYSQL="aci-mysql-rm${RM}"
 ACI_API="aci-api-rm${RM}"
 ```
 
-#### 2. Criar Grupo de Recursos e Provedores
+#### 2. Registrar Provedores e Criar Grupo de Recursos
 ```bash
 az provider register --namespace Microsoft.Storage
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.ContainerInstance
 
-az group create --name $RESOURCE_GROUP --location $LOCATION
+az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
 ```
 
 #### 3. Provisionar Storage Account e Volume do MySQL
 ```bash
-az storage account create --resource-group $RESOURCE_GROUP --name $STORAGE_ACCOUNT --location $LOCATION --sku Standard_LRS
+az storage account create --resource-group "$RESOURCE_GROUP" --name "$STORAGE_ACCOUNT" --location "$LOCATION" --sku Standard_LRS
 
-CONN_STR=$(az storage account show-connection-string --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --query connectionString -o tsv)
-az storage share create --name $FILE_SHARE --account-name $STORAGE_ACCOUNT --connection-string "$CONN_STR" --quota 5
+CONN_STR=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
+az storage share create --name "$FILE_SHARE" --account-name "$STORAGE_ACCOUNT" --connection-string "$CONN_STR" --quota 5
 ```
 
-#### 4. Criar Key Vault e Armazenar Credenciais
+#### 4. Criar Key Vault e Armazenar Credenciais com Segurança
 ```bash
-az keyvault create --name $KEY_VAULT --resource-group $RESOURCE_GROUP --location $LOCATION --enable-rbac-authorization false
+az keyvault create --name "$KEY_VAULT" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --enable-rbac-authorization false
 
-az keyvault secret set --vault-name $KEY_VAULT --name "mysql-database" --value "pethealth_db"
-az keyvault secret set --vault-name $KEY_VAULT --name "mysql-user" --value "pethealth_user"
-az keyvault secret set --vault-name $KEY_VAULT --name "mysql-password" --value "PetHealthPass@2026"
-az keyvault secret set --vault-name $KEY_VAULT --name "mysql-root-password" --value "PetHealth@2026"
+# Solicitar senhas no terminal de forma oculta
+read -s -p "Senha ROOT do MySQL: " MYSQL_ROOT_PASS; echo ""
+read -s -p "Senha do Usuario da App: " MYSQL_USER_PASS; echo ""
+
+az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-database" --value "pethealth_db"
+az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-user" --value "pethealth_user"
+az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-password" --value "$MYSQL_USER_PASS"
+az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-root-password" --value "$MYSQL_ROOT_PASS"
 ```
 
 #### 5. Criar ACR e Publicar as Imagens
 ```bash
-az acr create --resource-group $RESOURCE_GROUP --name $ACR_NAME --sku Basic --location $LOCATION --admin-enabled true
+az acr create --resource-group "$RESOURCE_GROUP" --name "$ACR_NAME" --sku Basic --location "$LOCATION" --admin-enabled true
 
-ACR_SERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
-ACR_USER=$(az acr credential show --name $ACR_NAME --query username -o tsv)
-ACR_PASS=$(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
+ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
 
-# Build das imagens diretamente na Azure (Cloud Build):
-az acr build --registry $ACR_NAME --image "pethealth-mysql:v1" --file database/Dockerfile.mysql database/
-az acr build --registry $ACR_NAME --image "pethealth-api:v1" --file Dockerfile .
+# Salvar credenciais do ACR no Key Vault
+az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-login-server" --value "$ACR_SERVER"
+az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-username" --value "$ACR_USER"
+az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-password" --value "$ACR_PASS"
+
+# Build das imagens diretamente na nuvem (Cloud Build):
+az acr build --registry "$ACR_NAME" --image "pethealth-mysql:v1" --file database/Dockerfile.mysql database/
+az acr build --registry "$ACR_NAME" --image "pethealth-api:v1" --file Dockerfile .
 ```
 
 #### 6. Provisionar o Banco de Dados MySQL no ACI
 ```bash
-STORAGE_KEY=$(az storage account keys list --resource-group $RESOURCE_GROUP --account-name $STORAGE_ACCOUNT --query "[0].value" -o tsv)
+STORAGE_KEY=$(az storage account keys list --resource-group "$RESOURCE_GROUP" --account-name "$STORAGE_ACCOUNT" --query "[0].value" -o tsv)
 
 az container create \
-  --resource-group $RESOURCE_GROUP \
-  --name $ACI_MYSQL \
-  --location $LOCATION \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$ACI_MYSQL" \
+  --location "$LOCATION" \
   --image "$ACR_SERVER/pethealth-mysql:v1" \
   --cpu 1 --memory 1.5 \
   --os-type Linux \
@@ -256,20 +267,22 @@ az container create \
   --environment-variables \
     MYSQL_DATABASE="pethealth_db" \
     MYSQL_USER="pethealth_user" \
-    MYSQL_PASSWORD="PetHealthPass@2026" \
-    MYSQL_ROOT_PASSWORD="PetHealth@2026" \
+    MYSQL_PASSWORD="$MYSQL_USER_PASS" \
+    MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASS" \
   --restart-policy Always
 ```
 
 #### 7. Provisionar a Aplicação .NET no ACI
 ```bash
-MYSQL_FQDN=$(az container show --resource-group $RESOURCE_GROUP --name $ACI_MYSQL --query ipAddress.fqdn -o tsv)
-CONN_STRING="Server=${MYSQL_FQDN};Port=3306;Database=pethealth_db;User=pethealth_user;Password=PetHealthPass@2026;"
+MYSQL_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL" --query ipAddress.fqdn -o tsv)
+CONN_STRING="Server=${MYSQL_FQDN};Port=3306;Database=pethealth_db;User=pethealth_user;Password=${MYSQL_USER_PASS};"
+
+az keyvault secret set --vault-name "$KEY_VAULT" --name "connection-string" --value "$CONN_STRING"
 
 az container create \
-  --resource-group $RESOURCE_GROUP \
-  --name $ACI_API \
-  --location $LOCATION \
+  --resource-group "$RESOURCE_GROUP" \
+  --name "$ACI_API" \
+  --location "$LOCATION" \
   --image "$ACR_SERVER/pethealth-api:v1" \
   --cpu 1 --memory 1 \
   --os-type Linux \
@@ -288,16 +301,13 @@ az container create \
 
 ## 8. Roteiro de Validação do CRUD e Persistência
 
-Obtenha o FQDN público da API:
+Obtenha o endereço FQDN da API:
 ```bash
-API_URL=$(az container show --resource-group "rg-pethealth-rm561760" --name "aci-api-rm561760" --query ipAddress.fqdn -o tsv)
-echo "API no ar em: http://${API_URL}:8080"
+API_URL=$(az container show --resource-group "rg-pethealth-rm${RM}" --name "aci-api-rm${RM}" --query ipAddress.fqdn -o tsv)
+echo "Swagger: http://${API_URL}:8080/swagger"
 ```
 
-Acesse o Swagger no navegador:  
-👉 **`http://<FQDN_DA_API>:8080/swagger`**
-
-### Operações CRUD via terminal (`curl`):
+### Operações CRUD via `curl`:
 
 #### 1. Consulta Inicial (READ)
 ```bash
@@ -307,7 +317,7 @@ curl -X GET "http://${API_URL}:8080/api/medicalrecords"
 
 #### 2. Inserção (CREATE)
 ```bash
-# Inserir novo Pet:
+# Inserir Pet:
 curl -X POST "http://${API_URL}:8080/api/pets" \
   -H "Content-Type: application/json" \
   -d '{
@@ -318,14 +328,14 @@ curl -X POST "http://${API_URL}:8080/api/pets" \
     "needsPostOpCare": false
   }'
 
-# Inserir Prontuário para o Pet (ID 3):
+# Inserir Prontuário para o Pet criado:
 curl -X POST "http://${API_URL}:8080/api/medicalrecords" \
   -H "Content-Type: application/json" \
   -d '{
     "petId": 3,
     "description": "Exame oftalmológico e limpeza auricular",
     "diagnosis": "Leve conjuntivite alérgica",
-    "treatment": "Colírio anti-inflamatório 2 gotas a cada 12 horas por 5 dias",
+    "treatment": "Colírio anti-inflamatório 2 gotas a cada 12 horas",
     "veterinarianName": "Dra. Paula Rocha - CRMV/SP 55210"
   }'
 ```
@@ -350,24 +360,24 @@ curl -X DELETE "http://${API_URL}:8080/api/pets/3"
 ```
 
 #### 5. Evidência no Banco de Dados via SELECT
-Conecte no container do MySQL no ACI:
+Conecte diretamente no container do MySQL:
 ```bash
 az container exec \
-  --resource-group "rg-pethealth-rm561760" \
-  --name "aci-mysql-rm561760" \
-  --exec-command "mysql -upethealth_user -pPetHealthPass@2026 pethealth_db -e 'SELECT * FROM PETS; SELECT * FROM MEDICAL_RECORDS;'"
+  --resource-group "rg-pethealth-rm${RM}" \
+  --name "aci-mysql-rm${RM}" \
+  --exec-command "mysql -upethealth_user -p<SUA_SENHA> pethealth_db -e 'SELECT * FROM PETS; SELECT * FROM MEDICAL_RECORDS;'"
 ```
 
 ---
 
 ## 9. Destruição de Recursos (FinOps)
 
-Ao concluir os testes e a gravação do vídeo, execute o script de limpeza para desalocar todos os recursos e evitar consumo desnecessário de créditos de assinatura:
+Ao concluir os testes e gravação do vídeo, execute o script de limpeza:
 
 ```bash
-bash scripts/05_cleanup.sh 561760
+bash scripts/05_cleanup.sh <SEU_RM>
 ```
 Ou via Azure CLI direto:
 ```bash
-az group delete --name "rg-pethealth-rm561760" --yes --no-wait
+az group delete --name "rg-pethealth-rm<SEU_RM>" --yes --no-wait
 ```

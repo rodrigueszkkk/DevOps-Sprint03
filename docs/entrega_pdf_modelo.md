@@ -5,7 +5,7 @@
 
 ### Integrantes do Grupo:
 
-- **Nome Completo:** [Nome do Aluno] | **RM:** 561760
+- **Nome Completo:** [Nome do Integrante] | **RM:** [Seu RM]
 
 ---
 

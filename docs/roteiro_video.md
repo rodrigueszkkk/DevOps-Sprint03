@@ -19,15 +19,15 @@
 2. [ ] Navegador aberto em abas limpas:
    - Portal Azure (`portal.azure.com`).
    - Repositório GitHub: `https://github.com/rodrigueszkkk/DevOps-Sprint03`.
-3. [ ] Terminal limpo (PowerShell ou Bash) com Azure CLI configurado (`az login`).
-4. [ ] DBeaver, MySQL Workbench ou terminal pronto para conectar no MySQL da Azure.
+3. [ ] Terminal limpo (PowerShell ou Bash) com Azure CLI autenticado (`az login`).
+4. [ ] Cliente de banco ou terminal pronto para conectar no MySQL da Azure.
 
 ---
 
 ## Passo a Passo Sequencial do Vídeo
 
 ### 1. Abertura e Identificação (30 segundos)
-- **Fala:** *"Olá, sou [Seu Nome], RM 561760. Esta é a apresentação da 3ª Sprint da disciplina DevOps Tools & Cloud Computing na FIAP. A solução adotada é a Opção 1: ACR + ACI, com arquitetura 100% containerizada na nuvem Microsoft Azure para a aplicação .NET 8 PetHealthEcosystem e o banco de dados relacional MySQL com persistência em Azure File Share."*
+- **Fala:** *"Olá, sou [Seu Nome], RM [Seu RM]. Esta é a apresentação da 3ª Sprint da disciplina DevOps Tools & Cloud Computing na FIAP. A solução adotada é a Opção 1: ACR + ACI, com arquitetura 100% containerizada na nuvem Microsoft Azure para a aplicação .NET 8 PetHealthEcosystem e o banco de dados relacional MySQL com persistência em Azure File Share."*
 
 ---
 
@@ -42,7 +42,7 @@ cd DevOps-Sprint03
 ---
 
 ### 3. Apresentação Rápida dos Artefatos Obrigatórios (1 a 2 minutos)
-- **Ação em tela:** Mostrar os arquivos no VS Code ou terminal:
+- **Ação em tela:** Mostrar os arquivos no editor ou terminal:
   - `script_bd.sql`: Mostrar o DDL com as tabelas CORE (`PETS` e `MEDICAL_RECORDS`), chaves primárias, estrangeiras e comentários descritivos.
   - `Dockerfile`: Destacar o estágio multi-stage e **a linha `USER $APP_UID`**, frisando que o container roda sob usuário não-root (requisito obrigatório 8.2).
   - `appsettings.json`: Mostrar que as credenciais foram removidas do código-fonte (segurança contra vazamento de senhas).
@@ -53,25 +53,25 @@ cd DevOps-Sprint03
 ### 4. Execução dos Scripts e Provisionamento na Azure (3 a 5 minutos)
 - **Ação em tela:** Executar o script de provisionamento:
 ```bash
-bash scripts/deploy_all.sh 561760 eastus
+bash scripts/deploy_all.sh <SEU_RM> <SUA_REGIAO>
 # Ou no Windows PowerShell:
-# .\scripts\deploy_all.ps1 -RM 561760 -Location eastus
+# .\scripts\deploy_all.ps1 -RM <SEU_RM> -Location <SUA_REGIAO>
 ```
 - **Fala explicativa enquanto os comandos rodam:**
-  - *"O script está criando o Resource Group `rg-pethealth-rm561760` na região `eastus`."*
-  - *"Criamos a Storage Account e o Azure File Share `mysql-data-share` para persistência física do banco de dados no ACI."*
-  - *"Criamos o Azure Key Vault para armazenar todas as senhas e connection strings de forma segura."*
+  - *"O script cria o Resource Group para nosso RM na região autorizada pela política."*
+  - *"Criamos a Storage Account e o Azure File Share para persistência física do banco de dados no ACI."*
+  - *"Criamos o Azure Key Vault para armazenar todas as senhas e connection strings de forma segura, sem expor no código."*
   - *"Criamos o Azure Container Registry (ACR), compilamos as imagens e realizamos o push."*
   - *"Provisionamos o container do MySQL no ACI montando o compartilhamento CIFS em `/var/lib/mysql`."*
-  - *"Por fim, provisionamos o container da API .NET no ACI, recebendo a connection string dinamicamente via variável de ambiente."*
+  - *"Por fim, provisionamos o container da API .NET no ACI, recebendo a connection string dinamicamente via variável de ambiente a partir do Key Vault."*
 - **Ação no Portal Azure:** Abrir o grupo de recursos no portal e mostrar todos os recursos criados via CLI.
 
 ---
 
 ### 5. Validação da Aplicação no Ar e Health Checks (1 minuto)
-- **Ação em tela:** No navegador, abrir a URL fornecida pelo script:
-  - `http://api-rm561760.eastus.azurecontainer.io:8080/swagger`
-  - `http://api-rm561760.eastus.azurecontainer.io:8080/health`
+- **Ação em tela:** No navegador, abrir as URLs geradas pelo script:
+  - `http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/swagger`
+  - `http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/health`
 - **Fala:** *"A aplicação está no ar no Azure Container Instances. O endpoint de `/health` retorna status 'Healthy' confirmando a comunicação ativa entre a API e o banco MySQL na nuvem."*
 
 ---
@@ -79,9 +79,9 @@ bash scripts/deploy_all.sh 561760 eastus
 ### 6. Demonstração do CRUD com Evidência em Banco via SELECT (SEM CORTES) (4 a 6 minutos)
 
 > ⚠️ **ATENÇÃO:** Mantenha a gravação contínua nesta etapa!
-> Conecte no MySQL do ACI usando o terminal (`az container exec`) ou via client MySQL:
+> Conecte no MySQL do ACI usando o terminal (`az container exec`):
 > ```bash
-> az container exec --resource-group rg-pethealth-rm561760 --name aci-mysql-rm561760 --exec-command "mysql -upethealth_user -pPetHealthPass@2026 pethealth_db"
+> az container exec --resource-group "rg-pethealth-rm<SEU_RM>" --name "aci-mysql-rm<SEU_RM>" --exec-command "mysql -upethealth_user -p<SUA_SENHA> pethealth_db"
 > ```
 
 #### A) Leitura Inicial (READ)
@@ -95,7 +95,7 @@ bash scripts/deploy_all.sh 561760 eastus
 #### B) Inclusão de Novo Registro (CREATE)
 - No Swagger ou via `curl`:
   ```bash
-  curl -X POST "http://api-rm561760.eastus.azurecontainer.io:8080/api/pets" \
+  curl -X POST "http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/api/pets" \
     -H "Content-Type: application/json" \
     -d '{
       "name": "Max",
@@ -111,7 +111,7 @@ bash scripts/deploy_all.sh 561760 eastus
   ```
 - Inserir prontuário para o Pet criado (ID 3):
   ```bash
-  curl -X POST "http://api-rm561760.eastus.azurecontainer.io:8080/api/medicalrecords" \
+  curl -X POST "http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/api/medicalrecords" \
     -H "Content-Type: application/json" \
     -d '{
       "petId": 3,
@@ -129,7 +129,7 @@ bash scripts/deploy_all.sh 561760 eastus
 #### C) Atualização de Registro (UPDATE)
 - Alterar dados do Pet (ID 3):
   ```bash
-  curl -X PUT "http://api-rm561760.eastus.azurecontainer.io:8080/api/pets/3" \
+  curl -X PUT "http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/api/pets/3" \
     -H "Content-Type: application/json" \
     -d '{
       "id": 3,
@@ -149,7 +149,7 @@ bash scripts/deploy_all.sh 561760 eastus
 #### D) Exclusão de Registro (DELETE)
 - Excluir o Pet criado (ID 3):
   ```bash
-  curl -X DELETE "http://api-rm561760.eastus.azurecontainer.io:8080/api/pets/3"
+  curl -X DELETE "http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/api/pets/3"
   ```
 - **Evidência no Banco:**
   ```sql
@@ -164,5 +164,5 @@ bash scripts/deploy_all.sh 561760 eastus
 - **Fala:** *"Demonstramos com sucesso a esteira completa na Azure: provisionamento 100% via Azure CLI, containerização com ACR e ACI, banco de dados MySQL com volume persistente, execução sem privilégios administrativos e validação de todas as operações de CRUD em tabelas CORE diretamente no banco. Obrigado!"*
 - Executar limpeza caso queira mostrar o comando FinOps:
   ```bash
-  # bash scripts/05_cleanup.sh 561760
+  # bash scripts/05_cleanup.sh <SEU_RM>
   ```

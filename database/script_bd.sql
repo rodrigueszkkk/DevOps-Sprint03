@@ -1,7 +1,7 @@
 -- ==================================================================================
 -- FIAP - DEVOPS TOOLS & CLOUD COMPUTING
 -- SPRINT 3: ENTREGA DEVOPS & CLOUD COMPUTING NA AZURE
--- ALUNO / RM: RM561760
+-- ALUNO / RM: <SEU_RM>
 -- REPOSITÓRIO: https://github.com/rodrigueszkkk/DevOps-Sprint03.git
 -- APLICAÇÃO: PetHealthEcosystem.Api (.NET 8)
 -- ARQUITETURA: Solução Containerizada (ACR + ACI + MySQL + Azure Files Volume)

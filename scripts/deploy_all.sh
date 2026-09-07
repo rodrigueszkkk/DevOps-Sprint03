@@ -2,20 +2,34 @@
 # =====================================================================
 # SCRIPT MESTRE: EXECUÇÃO COMPLETA DA ESTEIRA DEVOPS NA AZURE
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-RM="${1:-561760}"
-LOCATION="${2:-eastus}"
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório."
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    LOCATION="$2"
+else
+    read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
+    LOCATION="${LOCATION:-eastus}"
+fi
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "=================================================================="
 echo "   FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3"
 echo "   DEPLOY AUTOMATIZADO 100% AZURE CLI (ACR + ACI)"
-echo "   RM: $RM | Região: $LOCATION"
+echo "   Região: $LOCATION"
 echo "=================================================================="
 
 # Etapa 1: Infraestrutura Base

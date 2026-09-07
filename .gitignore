@@ -19,3 +19,9 @@ logs/
 ## OS Files
 .DS_Store
 Thumbs.db
+
+## Secrets & Environment
+.env
+.env.*
+!.env.example
+

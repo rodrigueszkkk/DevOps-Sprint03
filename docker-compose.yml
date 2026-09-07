@@ -8,16 +8,16 @@ services:
     container_name: pethealth-mysql
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: PetHealth@2026
-      MYSQL_DATABASE: pethealth_db
-      MYSQL_USER: pethealth_user
-      MYSQL_PASSWORD: PetHealthPass@2026
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-pethealth_db}
+      MYSQL_USER: ${MYSQL_USER:-pethealth_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "pethealth_user", "-pPetHealthPass@2026"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,7 +34,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
-      - ConnectionStrings__DefaultConnection=Server=database;Port=3306;Database=pethealth_db;User=pethealth_user;Password=PetHealthPass@2026;
+      - ConnectionStrings__DefaultConnection=Server=database;Port=3306;Database=${MYSQL_DATABASE:-pethealth_db};User=${MYSQL_USER:-pethealth_user};Password=${MYSQL_PASSWORD};
     ports:
       - "8080:8080"
 

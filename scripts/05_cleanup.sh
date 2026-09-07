@@ -2,12 +2,21 @@
 # =====================================================================
 # SCRIPT 05: LIMPEZA TOTAL DE RECURSOS NA AZURE (FINOPS)
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-RM="${1:-561760}"
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório."
+    exit 1
+fi
+
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 
 echo "=================================================================="

@@ -2,14 +2,30 @@
 # =====================================================================
 # SCRIPT 01: PROVISIONAMENTO DE INFRAESTRUTURA BASE NA AZURE
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-# Configurações e Variáveis
-RM="${1:-561760}"
-LOCATION="${2:-eastus}" # Regiões permitidas: eastus, mexicocentral, canadacentral, centralus, southafricanorth
+# Obtenção de parâmetros (via argumento ou prompt interativo seguro)
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório para nomear os recursos."
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    LOCATION="$2"
+else
+    read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
+    LOCATION="${LOCATION:-eastus}"
+fi
+
+# Variáveis de Recursos
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 STORAGE_ACCOUNT="storagerm${RM}"
 FILE_SHARE_NAME="mysql-data-share"
@@ -17,7 +33,7 @@ KEY_VAULT_NAME="kv-pethealth-rm${RM}"
 
 echo "=================================================================="
 echo "Iniciando Etapa 01: Infraestrutura Base Azure"
-echo "RM: $RM | Região: $LOCATION | Grupo de Recursos: $RESOURCE_GROUP"
+echo "Grupo de Recursos: $RESOURCE_GROUP | Região: $LOCATION"
 echo "=================================================================="
 
 # 1. Registrar provedores de recursos necessários na assinatura
@@ -47,7 +63,7 @@ else
     echo "Storage Account '$STORAGE_ACCOUNT' já existe."
 fi
 
-# 4. Obter Connection String do Storage e Criar Compartilhamento de Arquivos (Volume MySQL)
+# 4. Obter Connection String do Storage e Criar Compartilhamento de Arquivos
 echo "Obtendo connection string do Storage Account..."
 STORAGE_CONN_STRING=$(az storage account show-connection-string \
     --name "$STORAGE_ACCOUNT" \
@@ -87,12 +103,22 @@ az keyvault set-policy \
     --upn "$CURRENT_USER" \
     --secret-permissions get list set delete recover backup restore purge 2>/dev/null || true
 
-# 7. Armazenar segredos sensíveis no Key Vault
+# 7. Definição segura das senhas do Banco de Dados
+if [ -z "$MYSQL_ROOT_PASS" ]; then
+    read -s -p "Defina a senha de ROOT do MySQL: " MYSQL_ROOT_PASS
+    echo ""
+fi
+
+if [ -z "$MYSQL_USER_PASS" ]; then
+    read -s -p "Defina a senha do USUÁRIO da aplicação: " MYSQL_USER_PASS
+    echo ""
+fi
+
 echo "Gravando credenciais e segredos no Key Vault..."
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-database" --value "pethealth_db" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-user" --value "pethealth_user" -o none
-az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --value "PetHealthPass@2026" -o none
-az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --value "PetHealth@2026" -o none
+az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --value "$MYSQL_USER_PASS" -o none
+az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --value "$MYSQL_ROOT_PASS" -o none
 
 echo "=================================================================="
 echo "Etapa 01 concluída com sucesso!"

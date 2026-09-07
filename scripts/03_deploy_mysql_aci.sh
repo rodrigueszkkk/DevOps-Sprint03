@@ -2,13 +2,28 @@
 # =====================================================================
 # SCRIPT 03: DEPLOY DO BANCO DE DADOS MYSQL NO ACI (COM PERSISTÊNCIA)
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-RM="${1:-561760}"
-LOCATION="${2:-eastus}"
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório."
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    LOCATION="$2"
+else
+    read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
+    LOCATION="${LOCATION:-eastus}"
+fi
+
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 ACR_NAME="acrpethealthrm${RM}"
 STORAGE_ACCOUNT="storagerm${RM}"

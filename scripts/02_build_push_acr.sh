@@ -2,13 +2,28 @@
 # =====================================================================
 # SCRIPT 02: CRIAÇÃO DO ACR, BUILD E PUSH DAS IMAGENS DE CONTAINER
 # FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# RM: 561760
 # =====================================================================
 
 set -e
 
-RM="${1:-561760}"
-LOCATION="${2:-eastus}"
+if [ -n "$1" ]; then
+    RM="$1"
+else
+    read -p "Informe seu RM (somente números): " RM
+fi
+
+if [ -z "$RM" ]; then
+    echo "ERRO: O RM é obrigatório."
+    exit 1
+fi
+
+if [ -n "$2" ]; then
+    LOCATION="$2"
+else
+    read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
+    LOCATION="${LOCATION:-eastus}"
+fi
+
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 ACR_NAME="acrpethealthrm${RM}"
 KEY_VAULT_NAME="kv-pethealth-rm${RM}"
@@ -44,7 +59,6 @@ az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --va
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASSWORD" -o none
 
 # 4. Build e Push das Imagens para o ACR
-# Verificamos se o docker daemon local está acessível; caso não esteja, usamos 'az acr build' na nuvem
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if docker info &>/dev/null; then
