@@ -1,0 +1,16 @@
+# =====================================================================
+# DOCKERFILE PARA BANCO DE DADOS MYSQL 8.0 COM INICIALIZAÇÃO AUTOMÁTICA
+# Compatível com Azure Container Registry (ACR) e Azure Container Instances (ACI)
+# =====================================================================
+FROM mysql:8.0
+
+# Define variáveis padrão de inicialização (podem ser sobrescritas no deploy via Azure Key Vault)
+ENV MYSQL_DATABASE=pethealth_db \
+    MYSQL_USER=pethealth_user \
+    MYSQL_PASSWORD=PetHealthPass@2026 \
+    MYSQL_ROOT_PASSWORD=PetHealth@2026
+
+# Copia script DDL com tabelas CORE e SEED DATA para o diretório de inicialização do MySQL
+COPY script_bd.sql /docker-entrypoint-initdb.d/01_script_bd.sql
+
+EXPOSE 3306
