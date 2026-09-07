@@ -32,6 +32,7 @@ RESOURCE_GROUP="rg-pethealth-rm${RM}"
 STORAGE_ACCOUNT="storagerm${RM}"
 FILE_SHARE_NAME="mysql-data-share"
 KEY_VAULT_NAME="kv-pethealth-rm${RM}"
+ACR_NAME="acrpethealthrm${RM}"
 
 echo "=================================================================="
 echo "Iniciando Etapa 01: Infraestrutura Base Azure"
@@ -120,7 +121,31 @@ az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-user" --valu
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --value "$MYSQL_USER_PASS" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --value "$MYSQL_ROOT_PASS" -o none
 
+if ! az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+    echo "Criando Azure Container Registry '$ACR_NAME'..."
+    az acr create \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$ACR_NAME" \
+        --sku Basic \
+        --location "$LOCATION" \
+        --admin-enabled true
+else
+    echo "ACR '$ACR_NAME' já existe."
+fi
+
+echo "Obtendo credenciais do ACR..."
+ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+ACR_USERNAME=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
+
+az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --value "$ACR_LOGIN_SERVER" -o none
+az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --value "$ACR_USERNAME" -o none
+az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASSWORD" -o none
+
 echo "=================================================================="
 echo "Etapa 01 concluída com sucesso!"
 echo "Storage Account: $STORAGE_ACCOUNT | Key Vault: $KEY_VAULT_NAME"
+echo "ACR Name:        $ACR_NAME ($ACR_LOGIN_SERVER)"
+echo "ACR Username:    $ACR_USERNAME"
+echo "ACR Password:    $ACR_PASSWORD"
 echo "=================================================================="
