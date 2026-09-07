@@ -47,7 +47,7 @@ STORAGE_KEY=$(az storage account keys list \
     --account-name "$STORAGE_ACCOUNT" \
     --query "[0].value" -o tsv)
 
-if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" &>/dev/null; then
+if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" >/dev/null 2>&1; then
     ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
     ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
     ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)

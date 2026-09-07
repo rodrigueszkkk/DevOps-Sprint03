@@ -39,7 +39,7 @@ echo "Iniciando Etapa 04: Deploy da Aplicação .NET no Azure Container Instance
 echo "ACI API Name: $ACI_API_NAME | DNS Label: $DNS_LABEL"
 echo "=================================================================="
 
-if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" &>/dev/null; then
+if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" >/dev/null 2>&1; then
     ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
     ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
     ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
