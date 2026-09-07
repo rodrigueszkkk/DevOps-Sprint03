@@ -39,10 +39,18 @@ echo "Iniciando Etapa 04: Deploy da Aplicação .NET no Azure Container Instance
 echo "ACI API Name: $ACI_API_NAME | DNS Label: $DNS_LABEL"
 echo "=================================================================="
 
-echo "Recuperando segredos e dados de conexão do Key Vault..."
-ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
-ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
-ACR_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-password" --query value -o tsv)
+if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" &>/dev/null; then
+    ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+    ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+    ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --value "$ACR_SERVER" -o none
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --value "$ACR_USER" -o none
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASS" -o none
+else
+    ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
+    ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
+    ACR_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-password" --query value -o tsv)
+fi
 
 MYSQL_FQDN=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-fqdn" --query value -o tsv)
 MYSQL_DB=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-database" --query value -o tsv)

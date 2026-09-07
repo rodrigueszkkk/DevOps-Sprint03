@@ -47,10 +47,18 @@ STORAGE_KEY=$(az storage account keys list \
     --account-name "$STORAGE_ACCOUNT" \
     --query "[0].value" -o tsv)
 
-echo "Recuperando segredos do Key Vault..."
-ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
-ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
-ACR_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-password" --query value -o tsv)
+if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" &>/dev/null; then
+    ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+    ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
+    ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --value "$ACR_SERVER" -o none
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --value "$ACR_USER" -o none
+    az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASS" -o none
+else
+    ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
+    ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
+    ACR_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-password" --query value -o tsv)
+fi
 
 MYSQL_DB=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-database" --query value -o tsv)
 MYSQL_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-user" --query value -o tsv)
