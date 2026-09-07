@@ -1,22 +1,16 @@
 #!/bin/bash
-# =====================================================================
-# SCRIPT MESTRE: EXECUÇÃO COMPLETA DA ESTEIRA DEVOPS NA AZURE
-# FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# =====================================================================
 
 set -e
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$DIR/.." && pwd)"
 
-# 1. Carregar do arquivo local .env.azure se existir
 if [ -f "$ROOT_DIR/.env.azure" ]; then
     set -a
     source "$ROOT_DIR/.env.azure"
     set +a
 fi
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
 elif [ -z "$RM" ]; then
@@ -41,16 +35,9 @@ echo "   DEPLOY AUTOMATIZADO 100% AZURE CLI (ACR + ACI)"
 echo "   RM: $RM | Região: $LOCATION"
 echo "=================================================================="
 
-# Etapa 1: Infraestrutura Base
 bash "$DIR/01_setup_infra.sh" "$RM" "$LOCATION"
-
-# Etapa 2: ACR e Build das Imagens
 bash "$DIR/02_build_push_acr.sh" "$RM" "$LOCATION"
-
-# Etapa 3: Deploy do Banco de Dados
 bash "$DIR/03_deploy_mysql_aci.sh" "$RM" "$LOCATION"
-
-# Etapa 4: Deploy da Aplicação .NET
 bash "$DIR/04_deploy_api_aci.sh" "$RM" "$LOCATION"
 
 echo ""

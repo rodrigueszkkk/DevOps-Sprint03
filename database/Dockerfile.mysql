@@ -1,13 +1,5 @@
-# =====================================================================
-# DOCKERFILE PARA BANCO DE DADOS MYSQL 8.0 COM INICIALIZAÇÃO AUTOMÁTICA
-# Compatível com Azure Container Registry (ACR) e Azure Container Instances (ACI)
-# =====================================================================
 FROM mysql:8.0
 
-# O banco e credenciais são informados dinamicamente via variáveis de ambiente
-# em tempo de execução (Key Vault / docker-compose), garantindo segurança total.
-
-# Copia script DDL com tabelas CORE e SEED DATA para inicialização automática
 COPY script_bd.sql /docker-entrypoint-initdb.d/01_script_bd.sql
 
 EXPOSE 3306

@@ -26,3 +26,8 @@ Thumbs.db
 !.env.example
 !.env.azure.example
 
+## Docs & PDFs
+docs/
+*.pdf
+
+

@@ -15,32 +15,20 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// =====================================================================
-// 1. LOGGING ESTRUTURADO (Serilog) - console + arquivo, níveis e correlação
-// =====================================================================
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
-    .WriteTo.Console(
-        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({CorrelationId}) {Message:lj}{NewLine}{Exception}")
-    .WriteTo.File(
-        path: "logs/log-.txt",
-        rollingInterval: RollingInterval.Day,
-        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] ({CorrelationId}) {Message:lj}{NewLine}{Exception}")
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({CorrelationId}) {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(path: "logs/log-.txt", rollingInterval: RollingInterval.Day, outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] ({CorrelationId}) {Message:lj}{NewLine}{Exception}")
     .CreateLogger();
 
 builder.Host.UseSerilog();
 
-// =====================================================================
-// 2. SERVIÇOS / INJEÇÃO DE DEPENDÊNCIA
-// =====================================================================
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? builder.Configuration.GetConnectionString("OracleConnection")
     ?? "Server=localhost;Port=3306;Database=pethealth_db;User=pethealth_user;Password=pethealth_pass;";
 
-// Em ambiente de teste (WebApplicationFactory) o DbContext é substituído por InMemory,
-// então só registramos o provedor de banco fora do ambiente "Testing".
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     if (connectionString.Contains("User Id=", StringComparison.OrdinalIgnoreCase) && !connectionString.Contains("Port=3306"))
@@ -66,39 +54,22 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// =====================================================================
-// 3. HEALTH CHECKS
-//    - Conectividade com o Banco de Dados (MySQL ou Oracle)
-//    - Disponibilidade de serviço externo
-// =====================================================================
 var healthChecksBuilder = builder.Services.AddHealthChecks();
 
 if (!builder.Environment.IsEnvironment("Testing"))
 {
     if (connectionString.Contains("User Id=", StringComparison.OrdinalIgnoreCase) && !connectionString.Contains("Port=3306"))
     {
-        healthChecksBuilder.AddOracle(
-            connectionString,
-            name: "oracle-database",
-            tags: new[] { "db", "oracle", "ready" });
+        healthChecksBuilder.AddOracle(connectionString, name: "oracle-database", tags: new[] { "db", "oracle", "ready" });
     }
     else
     {
-        healthChecksBuilder.AddMySql(
-            connectionString,
-            name: "mysql-database",
-            tags: new[] { "db", "mysql", "ready" });
+        healthChecksBuilder.AddMySql(connectionString, name: "mysql-database", tags: new[] { "db", "mysql", "ready" });
     }
 }
 
-healthChecksBuilder.AddUrlGroup(
-    new Uri("https://api.github.com"),
-    name: "external-service",
-    tags: new[] { "external", "ready" });
+healthChecksBuilder.AddUrlGroup(new Uri("https://api.github.com"), name: "external-service", tags: new[] { "external", "ready" });
 
-// =====================================================================
-// 4. OPENTELEMETRY - TRACING E MÉTRICAS
-// =====================================================================
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(serviceName: "PetHealthEcosystem.Api"))
     .WithTracing(tracing => tracing
@@ -114,15 +85,11 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
-// =====================================================================
-// 5. PIPELINE HTTP
-// =====================================================================
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<MetricsMiddleware>();
 
 app.UseSerilogRequestLogging();
 
-// Swagger habilitado para testes locais e em nuvem (ACI)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -133,7 +100,6 @@ app.UseSwaggerUI(c =>
 app.UseAuthorization();
 app.MapControllers();
 
-// Endpoints de Health Check
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
@@ -147,7 +113,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
-    Predicate = _ => false, // apenas confirma que o processo está de pé
+    Predicate = _ => false,
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
 });
 
@@ -166,6 +132,4 @@ finally
     Log.CloseAndFlush();
 }
 
-// Classe parcial necessária para que o WebApplicationFactory<Program>
-// dos testes de integração enxergue o entrypoint da API.
 public partial class Program { }

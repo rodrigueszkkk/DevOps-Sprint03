@@ -12,7 +12,6 @@ namespace PetHealthEcosystem.Api.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Mapeamento da entidade PETS
             modelBuilder.Entity<Pet>(entity =>
             {
                 entity.ToTable("PETS");
@@ -22,7 +21,6 @@ namespace PetHealthEcosystem.Api.Data
                 entity.Property(p => p.TutorName).HasMaxLength(100);
             });
 
-            // Mapeamento da entidade MEDICAL_RECORDS (2ª tabela core relacionada)
             modelBuilder.Entity<MedicalRecord>(entity =>
             {
                 entity.ToTable("MEDICAL_RECORDS");

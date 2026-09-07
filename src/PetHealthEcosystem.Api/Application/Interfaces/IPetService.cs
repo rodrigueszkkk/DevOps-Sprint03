@@ -2,10 +2,6 @@ using PetHealthEcosystem.Api.Models;
 
 namespace PetHealthEcosystem.Api.Application.Interfaces
 {
-    /// <summary>
-    /// Camada de Aplicação: orquestra as regras de negócio e validação
-    /// antes de delegar a persistência ao repositório (Domínio/Infraestrutura).
-    /// </summary>
     public interface IPetService
     {
         Task<IEnumerable<Pet>> GetAllAsync();

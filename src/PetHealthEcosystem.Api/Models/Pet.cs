@@ -8,10 +8,6 @@ namespace PetHealthEcosystem.Api.Models
         public int Age { get; set; }
         public string TutorName { get; set; } = string.Empty;
         public bool NeedsPostOpCare { get; set; }
-
-        /// <summary>
-        /// Histórico de prontuários / atendimentos médicos do Pet.
-        /// </summary>
         public ICollection<MedicalRecord> MedicalRecords { get; set; } = new List<MedicalRecord>();
     }
 }

@@ -2,11 +2,6 @@ using PetHealthEcosystem.Api.Models;
 
 namespace PetHealthEcosystem.Api.Domain.Interfaces
 {
-    /// <summary>
-    /// Contrato de acesso a dados para a entidade Pet.
-    /// Faz parte da camada de Domínio: a Aplicação depende desta abstração,
-    /// nunca da implementação concreta em Infrastructure.
-    /// </summary>
     public interface IPetRepository
     {
         Task<IEnumerable<Pet>> GetAllAsync();

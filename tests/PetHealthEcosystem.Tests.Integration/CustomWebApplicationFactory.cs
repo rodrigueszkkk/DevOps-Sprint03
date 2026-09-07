@@ -6,11 +6,6 @@ using PetHealthEcosystem.Api.Data;
 
 namespace PetHealthEcosystem.Tests.Integration
 {
-    /// <summary>
-    /// Fábrica de host de teste que sobe a API inteira em memória (via
-    /// WebApplicationFactory) e substitui o provedor Oracle do AppDbContext
-    /// por um banco InMemory, isolado por execução (Guid único).
-    /// </summary>
     public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)

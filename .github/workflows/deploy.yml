@@ -1,0 +1,61 @@
+name: Build and Push Docker Images to ACR
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      acr_name:
+        description: 'Azure Container Registry Name'
+        required: false
+        default: ''
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set ACR Name
+        run: |
+          if [ -n "${{ github.event.inputs.acr_name }}" ]; then
+            echo "ACR_NAME=${{ github.event.inputs.acr_name }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.ACR_NAME }}" ]; then
+            echo "ACR_NAME=${{ secrets.ACR_NAME }}" >> $GITHUB_ENV
+          elif [ -n "${{ secrets.RM }}" ]; then
+            echo "ACR_NAME=acrpethealthrm${{ secrets.RM }}" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to Azure Container Registry
+        if: "${{ secrets.ACR_USERNAME != '' && secrets.ACR_PASSWORD != '' }}"
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push MySQL image
+        if: "${{ secrets.ACR_USERNAME != '' && secrets.ACR_PASSWORD != '' }}"
+        uses: docker/build-push-action@v5
+        with:
+          context: ./database
+          file: ./database/Dockerfile.mysql
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/pethealth-mysql:v1
+
+      - name: Build and push API image
+        if: "${{ secrets.ACR_USERNAME != '' && secrets.ACR_PASSWORD != '' }}"
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ env.ACR_NAME }}.azurecr.io/pethealth-api:v1
+
+      - name: Build local validation
+        if: "${{ secrets.ACR_USERNAME == '' || secrets.ACR_PASSWORD == '' }}"
+        run: |
+          docker build -t pethealth-mysql:v1 -f database/Dockerfile.mysql database
+          docker build -t pethealth-api:v1 -f Dockerfile .

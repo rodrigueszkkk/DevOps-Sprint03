@@ -1,21 +1,15 @@
 #!/bin/bash
-# =====================================================================
-# SCRIPT 05: LIMPEZA TOTAL DE RECURSOS NA AZURE (FINOPS)
-# FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# =====================================================================
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 1. Carregar do arquivo local .env.azure se existir
 if [ -f "$ROOT_DIR/.env.azure" ]; then
     set -a
     source "$ROOT_DIR/.env.azure"
     set +a
 fi
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
 elif [ -z "$RM" ]; then

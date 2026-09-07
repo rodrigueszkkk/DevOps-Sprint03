@@ -1,21 +1,15 @@
 #!/bin/bash
-# =====================================================================
-# SCRIPT 03: DEPLOY DO BANCO DE DADOS MYSQL NO ACI (COM PERSISTÊNCIA)
-# FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# =====================================================================
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 1. Carregar do arquivo local .env.azure se existir
 if [ -f "$ROOT_DIR/.env.azure" ]; then
     set -a
     source "$ROOT_DIR/.env.azure"
     set +a
 fi
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
 elif [ -z "$RM" ]; then
@@ -47,14 +41,12 @@ echo "Iniciando Etapa 03: Deploy do Banco de Dados no Azure Container Instance"
 echo "ACI Name: $ACI_MYSQL_NAME | DNS Label: $DNS_LABEL"
 echo "=================================================================="
 
-# 1. Recuperar chave de acesso do Storage Account para montagem do volume
 echo "Recuperando credenciais de armazenamento..."
 STORAGE_KEY=$(az storage account keys list \
     --resource-group "$RESOURCE_GROUP" \
     --account-name "$STORAGE_ACCOUNT" \
     --query "[0].value" -o tsv)
 
-# 2. Recuperar credenciais do ACR e do Banco de Dados no Key Vault
 echo "Recuperando segredos do Key Vault..."
 ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
 ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
@@ -65,13 +57,11 @@ MYSQL_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysq
 MYSQL_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --query value -o tsv)
 MYSQL_ROOT_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --query value -o tsv)
 
-# 3. Remover instância anterior caso já exista (para permitir re-deploy limpo)
 if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" &>/dev/null; then
     echo "Instância anterior '$ACI_MYSQL_NAME' encontrada. Excluindo..."
     az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --yes
 fi
 
-# 4. Criar o Container Instance do MySQL montando o Azure File Share
 echo "Provisionando container MySQL no ACI..."
 az container create \
     --resource-group "$RESOURCE_GROUP" \
@@ -100,7 +90,6 @@ az container create \
 echo "Aguardando inicialização do container de banco de dados..."
 sleep 20
 
-# 5. Obter FQDN e IP público do MySQL
 MYSQL_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --query ipAddress.fqdn -o tsv)
 MYSQL_IP=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --query ipAddress.ip -o tsv)
 

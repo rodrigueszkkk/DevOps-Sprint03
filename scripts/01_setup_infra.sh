@@ -1,21 +1,15 @@
 #!/bin/bash
-# =====================================================================
-# SCRIPT 01: PROVISIONAMENTO DE INFRAESTRUTURA BASE NA AZURE
-# FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# =====================================================================
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 1. Carregar do arquivo local .env.azure se existir
 if [ -f "$ROOT_DIR/.env.azure" ]; then
     set -a
     source "$ROOT_DIR/.env.azure"
     set +a
 fi
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
 elif [ -z "$RM" ]; then
@@ -34,7 +28,6 @@ elif [ -z "$LOCATION" ]; then
     LOCATION="${LOCATION:-eastus}"
 fi
 
-# Variáveis de Recursos
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 STORAGE_ACCOUNT="storagerm${RM}"
 FILE_SHARE_NAME="mysql-data-share"
@@ -45,14 +38,12 @@ echo "Iniciando Etapa 01: Infraestrutura Base Azure"
 echo "Grupo de Recursos: $RESOURCE_GROUP | Região: $LOCATION"
 echo "=================================================================="
 
-# 1. Registrar provedores de recursos necessários na assinatura
 echo "Registrando Resource Providers..."
 az provider register --namespace Microsoft.Storage
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.ContainerInstance
 
-# 2. Criar Grupo de Recursos
 if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
     echo "Criando Resource Group '$RESOURCE_GROUP' em '$LOCATION'..."
     az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
@@ -60,7 +51,6 @@ else
     echo "Resource Group '$RESOURCE_GROUP' já existe."
 fi
 
-# 3. Criar Conta de Armazenamento (Storage Account)
 if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
     echo "Criando Storage Account '$STORAGE_ACCOUNT'..."
     az storage account create \
@@ -72,7 +62,6 @@ else
     echo "Storage Account '$STORAGE_ACCOUNT' já existe."
 fi
 
-# 4. Obter Connection String do Storage e Criar Compartilhamento de Arquivos
 echo "Obtendo connection string do Storage Account..."
 STORAGE_CONN_STRING=$(az storage account show-connection-string \
     --name "$STORAGE_ACCOUNT" \
@@ -91,7 +80,6 @@ else
     echo "Compartilhamento '$FILE_SHARE_NAME' já existe."
 fi
 
-# 5. Criar Azure Key Vault para armazenamento seguro de credenciais
 if ! az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
     echo "Criando Key Vault '$KEY_VAULT_NAME'..."
     az keyvault create \
@@ -103,7 +91,6 @@ else
     echo "Key Vault '$KEY_VAULT_NAME' já existe."
 fi
 
-# 6. Atribuir permissões no Key Vault para o usuário autenticado
 CURRENT_USER=$(az account show --query user.name -o tsv)
 echo "Configurando política de acesso no Key Vault para '$CURRENT_USER'..."
 az keyvault set-policy \
@@ -112,7 +99,6 @@ az keyvault set-policy \
     --upn "$CURRENT_USER" \
     --secret-permissions get list set delete recover backup restore purge 2>/dev/null || true
 
-# 7. Definição segura das senhas do Banco de Dados
 if [ -z "$MYSQL_ROOT_PASS" ]; then
     read -s -p "Defina a senha de ROOT do MySQL para o Key Vault: " MYSQL_ROOT_PASS
     echo ""

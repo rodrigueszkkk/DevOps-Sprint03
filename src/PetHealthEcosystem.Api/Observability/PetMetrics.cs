@@ -2,10 +2,6 @@ using System.Diagnostics.Metrics;
 
 namespace PetHealthEcosystem.Api.Observability
 {
-    /// <summary>
-    /// Métricas de negócio/desempenho customizadas da API, expostas via
-    /// System.Diagnostics.Metrics e coletadas pelo OpenTelemetry.
-    /// </summary>
     public class PetMetrics
     {
         public const string MeterName = "PetHealthEcosystem.Api";

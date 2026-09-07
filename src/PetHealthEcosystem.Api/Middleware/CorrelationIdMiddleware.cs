@@ -3,11 +3,6 @@ using Serilog.Context;
 
 namespace PetHealthEcosystem.Api.Middleware
 {
-    /// <summary>
-    /// Garante que toda requisição tenha um Correlation Id, propagado no header
-    /// de resposta e injetado no contexto de log do Serilog, permitindo
-    /// correlacionar todas as linhas de log de uma mesma requisição.
-    /// </summary>
     public class CorrelationIdMiddleware
     {
         private const string HeaderName = "X-Correlation-Id";

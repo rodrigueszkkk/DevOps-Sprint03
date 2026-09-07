@@ -1,10 +1,3 @@
-<#
-=====================================================================
-SCRIPT MESTRE POWERSHELL: DEPLOY COMPLETO AZURE CLI (ACR + ACI)
-FIAP - DevOps Tools & Cloud Computing - Sprint 3
-=====================================================================
-#>
-
 param(
     [Parameter(Mandatory=$false)]
     [string]$RM,
@@ -16,7 +9,6 @@ $ErrorActionPreference = "Stop"
 
 $rootDir = Split-Path -Parent $PSScriptRoot
 
-# 1. Carregar do arquivo local .env.azure se existir
 if (-not $RM -or -not $Location) {
     $envAzurePath = Join-Path $rootDir ".env.azure"
     if (Test-Path $envAzurePath) {
@@ -31,7 +23,6 @@ if (-not $RM -or -not $Location) {
     }
 }
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if (-not $RM) {
     $RM = Read-Host "Informe seu RM (somente números)"
 }
@@ -61,7 +52,6 @@ Write-Host "  DEPLOY 100% AZURE CLI (ACR + ACI) - POWERSHELL" -ForegroundColor C
 Write-Host "  RM: $RM | Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
 Write-Host "==================================================================" -ForegroundColor Cyan
 
-# Leitura segura das senhas caso não estejam em variáveis
 if (-not $env:MYSQL_ROOT_PASS) {
     $mysqlRootSec = Read-Host "Defina a senha de ROOT do MySQL para o Key Vault" -AsSecureString
     $bstrRoot = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlRootSec)
@@ -78,27 +68,23 @@ if (-not $env:MYSQL_USER_PASS) {
     $plainUser = $env:MYSQL_USER_PASS
 }
 
-# 1. Registrar Providers
 Write-Host "`n[1/6] Registrando Resource Providers..." -ForegroundColor Yellow
 az provider register --namespace Microsoft.Storage
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.ContainerInstance
 
-# 2. Criar Resource Group
 Write-Host "`n[2/6] Criando/Verificando Resource Group..." -ForegroundColor Yellow
 $rgExists = az group exists --name $ResourceGroup
 if ($rgExists -ne "true") {
     az group create --name $ResourceGroup --location $Location
 }
 
-# 3. Storage Account & File Share
 Write-Host "`n[3/6] Criando Storage Account e File Share para o volume do banco..." -ForegroundColor Yellow
 az storage account create --resource-group $ResourceGroup --name $StorageAccount --location $Location --sku Standard_LRS
 $storageConnString = az storage account show-connection-string --name $StorageAccount --resource-group $ResourceGroup --query connectionString -o tsv
 az storage share create --name $FileShareName --account-name $StorageAccount --connection-string $storageConnString --quota 5
 
-# 4. Key Vault e Segredos
 Write-Host "`n[4/6] Criando Key Vault e gravando credenciais seguras..." -ForegroundColor Yellow
 az keyvault create --name $KeyVaultName --resource-group $ResourceGroup --location $Location --enable-rbac-authorization false
 $currentUser = az account show --query user.name -o tsv
@@ -109,7 +95,6 @@ az keyvault secret set --vault-name $KeyVaultName --name "mysql-user" --value "p
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-password" --value $plainUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-root-password" --value $plainRoot -o none
 
-# 5. ACR e Build das Imagens
 Write-Host "`n[5/6] Criando ACR e compilando imagens com Docker..." -ForegroundColor Yellow
 az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true
 
@@ -121,7 +106,6 @@ az keyvault secret set --vault-name $KeyVaultName --name "acr-login-server" --va
 az keyvault secret set --vault-name $KeyVaultName --name "acr-username" --value $acrUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "acr-password" --value $acrPass -o none
 
-# Login no ACR via Docker
 Write-Host "Autenticando Docker no ACR ($acrLoginServer)..." -ForegroundColor Yellow
 echo $acrPass | docker login $acrLoginServer -u $acrUser --password-stdin
 
@@ -133,7 +117,6 @@ Write-Host "Compilando imagem API .NET 8 (Non-root)..." -ForegroundColor Yellow
 docker build -t "$acrLoginServer/pethealth-api:v1" -f "$rootDir\Dockerfile" "$rootDir"
 docker push "$acrLoginServer/pethealth-api:v1"
 
-# 6. Deploy do MySQL no ACI
 Write-Host "`n[6/6] Provisionando Containers no Azure Container Instances..." -ForegroundColor Yellow
 $storageKey = az storage account keys list --resource-group $ResourceGroup --account-name $StorageAccount --query "[0].value" -o tsv
 
@@ -168,7 +151,6 @@ $mysqlFqdn = az container show --resource-group $ResourceGroup --name $AciMysqlN
 $connString = "Server=$mysqlFqdn;Port=3306;Database=pethealth_db;User=pethealth_user;Password=$plainUser;"
 az keyvault secret set --vault-name $KeyVaultName --name "connection-string" --value $connString -o none
 
-# Deploy da API no ACI
 az container delete --resource-group $ResourceGroup --name $AciApiName --yes 2>$null
 az container create `
     --resource-group $ResourceGroup `

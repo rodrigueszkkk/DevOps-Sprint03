@@ -1,21 +1,15 @@
 #!/bin/bash
-# =====================================================================
-# SCRIPT 04: DEPLOY DA API .NET NO ACI E INTEGRAÇÃO COM BANCO
-# FIAP - DevOps Tools & Cloud Computing - Sprint 3
-# =====================================================================
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# 1. Carregar do arquivo local .env.azure se existir
 if [ -f "$ROOT_DIR/.env.azure" ]; then
     set -a
     source "$ROOT_DIR/.env.azure"
     set +a
 fi
 
-# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
 elif [ -z "$RM" ]; then
@@ -45,7 +39,6 @@ echo "Iniciando Etapa 04: Deploy da Aplicação .NET no Azure Container Instance
 echo "ACI API Name: $ACI_API_NAME | DNS Label: $DNS_LABEL"
 echo "=================================================================="
 
-# 1. Recuperar credenciais do ACR e dados de conexão do MySQL
 echo "Recuperando segredos e dados de conexão do Key Vault..."
 ACR_SERVER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" --query value -o tsv)
 ACR_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-username" --query value -o tsv)
@@ -56,18 +49,15 @@ MYSQL_DB=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-
 MYSQL_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-user" --query value -o tsv)
 MYSQL_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --query value -o tsv)
 
-# 2. Montar e registrar a Connection String no Key Vault
 CONNECTION_STRING="Server=${MYSQL_FQDN};Port=3306;Database=${MYSQL_DB};User=${MYSQL_USER};Password=${MYSQL_PASS};"
 echo "Registrando connection string segura no Key Vault..."
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "connection-string" --value "$CONNECTION_STRING" -o none
 
-# 3. Remover instância anterior caso já exista
 if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" &>/dev/null; then
     echo "Instância anterior '$ACI_API_NAME' encontrada. Excluindo..."
     az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --yes
 fi
 
-# 4. Provisionar o Container Instance da API .NET 8 (Execução Non-Root)
 echo "Criando container da API .NET no ACI..."
 az container create \
     --resource-group "$RESOURCE_GROUP" \
@@ -90,7 +80,6 @@ az container create \
 echo "Aguardando inicialização da API..."
 sleep 15
 
-# 5. Obter URLs públicas da aplicação
 API_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --query ipAddress.fqdn -o tsv)
 API_IP=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --query ipAddress.ip -o tsv)
 
