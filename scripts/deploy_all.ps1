@@ -110,7 +110,7 @@ az keyvault secret set --vault-name $KeyVaultName --name "mysql-password" --valu
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-root-password" --value $plainRoot -o none
 
 # 5. ACR e Build das Imagens
-Write-Host "`n[5/6] Criando ACR e compilando imagens na Azure..." -ForegroundColor Yellow
+Write-Host "`n[5/6] Criando ACR e compilando imagens com Docker..." -ForegroundColor Yellow
 az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true
 
 $acrLoginServer = az acr show --name $AcrName --query loginServer -o tsv
@@ -121,11 +121,17 @@ az keyvault secret set --vault-name $KeyVaultName --name "acr-login-server" --va
 az keyvault secret set --vault-name $KeyVaultName --name "acr-username" --value $acrUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "acr-password" --value $acrPass -o none
 
-Write-Host "Realizando Cloud Build da imagem MySQL..." -ForegroundColor Yellow
-az acr build --registry $AcrName --image "pethealth-mysql:v1" --file "$rootDir\database\Dockerfile.mysql" "$rootDir\database"
+# Login no ACR via Docker
+Write-Host "Autenticando Docker no ACR ($acrLoginServer)..." -ForegroundColor Yellow
+echo $acrPass | docker login $acrLoginServer -u $acrUser --password-stdin
 
-Write-Host "Realizando Cloud Build da imagem API .NET 8 (Non-root)..." -ForegroundColor Yellow
-az acr build --registry $AcrName --image "pethealth-api:v1" --file "$rootDir\Dockerfile" "$rootDir"
+Write-Host "Compilando imagem MySQL com DDL..." -ForegroundColor Yellow
+docker build -t "$acrLoginServer/pethealth-mysql:v1" -f "$rootDir\database\Dockerfile.mysql" "$rootDir\database"
+docker push "$acrLoginServer/pethealth-mysql:v1"
+
+Write-Host "Compilando imagem API .NET 8 (Non-root)..." -ForegroundColor Yellow
+docker build -t "$acrLoginServer/pethealth-api:v1" -f "$rootDir\Dockerfile" "$rootDir"
+docker push "$acrLoginServer/pethealth-api:v1"
 
 # 6. Deploy do MySQL no ACI
 Write-Host "`n[6/6] Provisionando Containers no Azure Container Instances..." -ForegroundColor Yellow

@@ -68,39 +68,66 @@ az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" 
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --value "$ACR_USERNAME" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASSWORD" -o none
 
-# 4. Build e Push das Imagens para o ACR
-if docker info &>/dev/null; then
-    echo "Docker local detectado. Realizando build e push localmente..."
-    
-    echo "Realizando login no ACR..."
-    az acr login --name "$ACR_NAME"
+# 4. Detecção e Inicialização do Docker
+DOCKER_CMD="docker"
 
-    echo "Build da imagem do banco MySQL customizado com DDL..."
-    docker build -t "$ACR_LOGIN_SERVER/pethealth-mysql:v1" -f "$ROOT_DIR/database/Dockerfile.mysql" "$ROOT_DIR/database"
-    echo "Push da imagem MySQL..."
-    docker push "$ACR_LOGIN_SERVER/pethealth-mysql:v1"
-
-    echo "Build da imagem da API .NET 8 (Multi-stage + Non-root)..."
-    docker build -t "$ACR_LOGIN_SERVER/pethealth-api:v1" -f "$ROOT_DIR/Dockerfile" "$ROOT_DIR"
-    echo "Push da imagem da API .NET..."
-    docker push "$ACR_LOGIN_SERVER/pethealth-api:v1"
-else
-    echo "Docker daemon local indisponível. Utilizando Azure Cloud Build (az acr build)..."
-
-    echo "Cloud Build da imagem MySQL..."
-    az acr build \
-        --registry "$ACR_NAME" \
-        --image "pethealth-mysql:v1" \
-        --file "$ROOT_DIR/database/Dockerfile.mysql" \
-        "$ROOT_DIR/database"
-
-    echo "Cloud Build da imagem da API .NET..."
-    az acr build \
-        --registry "$ACR_NAME" \
-        --image "pethealth-api:v1" \
-        --file "$ROOT_DIR/Dockerfile" \
-        "$ROOT_DIR"
+if ! docker info &>/dev/null; then
+    # Tenta com sudo caso o usuário não esteja no grupo docker
+    if sudo docker info &>/dev/null; then
+        DOCKER_CMD="sudo docker"
+    else
+        # Tenta iniciar o serviço Docker
+        echo "Iniciando serviço Docker..."
+        sudo service docker start 2>/dev/null || sudo systemctl start docker 2>/dev/null || true
+        sleep 2
+        
+        if docker info &>/dev/null; then
+            DOCKER_CMD="docker"
+        elif sudo docker info &>/dev/null; then
+            DOCKER_CMD="sudo docker"
+        fi
+    fi
 fi
+
+# Valida se o Docker está operacional
+if ! $DOCKER_CMD info &>/dev/null; then
+    echo ""
+    echo "=================================================================="
+    echo "ERRO: O Docker daemon não está em execução nesta máquina!"
+    echo "=================================================================="
+    echo "A assinatura educacional da Azure bloqueia compilações remotas (TasksOperationsNotAllowed)."
+    echo "O build precisa ser realizado com Docker local (padrão da Aula 12)."
+    echo ""
+    echo "Para resolver:"
+    echo "1) Se estiver no Linux/WSL, execute:"
+    echo "   sudo service docker start"
+    echo "   # ou: sudo systemctl start docker"
+    echo "   # Se o Docker não estiver instalado: sudo apt update && sudo apt install -y docker.io"
+    echo ""
+    echo "2) Se estiver no Windows/Mac:"
+    echo "   Abra o aplicativo Docker Desktop e aguarde ele inicializar."
+    echo "=================================================================="
+    exit 1
+fi
+
+echo "Docker operacional utilizando: $DOCKER_CMD"
+
+# 5. Login no ACR (Aula 12, Slide 19)
+echo "Realizando login no ACR ($ACR_LOGIN_SERVER)..."
+echo "$ACR_PASSWORD" | $DOCKER_CMD login "$ACR_LOGIN_SERVER" -u "$ACR_USERNAME" --password-stdin
+
+# 6. Build e Push das Imagens
+echo "Compilando imagem do banco MySQL com DDL embutido..."
+$DOCKER_CMD build -t "$ACR_LOGIN_SERVER/pethealth-mysql:v1" -f "$ROOT_DIR/database/Dockerfile.mysql" "$ROOT_DIR/database"
+
+echo "Enviando imagem do MySQL para o ACR..."
+$DOCKER_CMD push "$ACR_LOGIN_SERVER/pethealth-mysql:v1"
+
+echo "Compilando imagem da API .NET 8 (Multi-stage + Non-root)..."
+$DOCKER_CMD build -t "$ACR_LOGIN_SERVER/pethealth-api:v1" -f "$ROOT_DIR/Dockerfile" "$ROOT_DIR"
+
+echo "Enviando imagem da API .NET para o ACR..."
+$DOCKER_CMD push "$ACR_LOGIN_SERVER/pethealth-api:v1"
 
 echo "=================================================================="
 echo "Etapa 02 concluída com sucesso!"
