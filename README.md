@@ -25,9 +25,10 @@ Repositório acadêmico desenvolvido para a **3ª Sprint da disciplina DevOps To
 4. [Modelagem do Banco de Dados (CORE)](#4-modelagem-do-banco-de-dados-core)
 5. [Segurança e Conformidade de Containers](#5-segurança-e-conformidade-de-containers)
 6. [Guia de Execução Local](#6-guia-de-execução-local)
-7. [Guia de Deploy na Nuvem Azure (How-To Azure CLI)](#7-guia-de-deploy-na-nuvem-azure-how-to-azure-cli)
-8. [Roteiro de Validação do CRUD e Persistência](#8-roteiro-de-validação-do-crud-e-persistência)
-9. [Destruição de Recursos (FinOps)](#9-destruição-de-recursos-finops)
+7. [Guia de Deploy na Nuvem Azure (How-To Definitivo do Zero)](#7-guia-de-deploy-na-nuvem-azure-how-to-definitivo-do-zero)
+8. [Roteiro de Validação do CRUD, Swagger e Persistência](#8-roteiro-de-validação-do-crud-swagger-e-persistência)
+9. [FinOps e Gestão de Recursos (Pausar ou Destruir)](#9-finops-e-gestão-de-recursos-pausar-ou-destruir)
+
 
 ---
 
@@ -159,198 +160,185 @@ docker compose up -d --build
 
 ---
 
-## 7. Guia de Deploy na Nuvem Azure (How-To Azure CLI)
+## 7. Guia de Deploy na Nuvem Azure (How-To Definitivo do Zero)
 
-### Opção A: Execução Automatizada via Script Mestre
+O fluxo oficial foi projetado para execução no **Azure Cloud Shell (Bash)** ou terminal com **Azure CLI**, integrando-se com o **GitHub Actions** para a compilação e publicação automatizada dos contêineres no **Azure Container Registry (ACR)**.
 
-Os scripts solicitam o RM, a região autorizada e as senhas do banco de forma segura via terminal:
+---
+
+### 7.1 Pré-requisitos e Clonagem do Repositório
+
+1. Acesse o portal da Azure e abra o **Cloud Shell** (ícone `>_` no canto superior direito) escolhendo o ambiente **Bash**, ou utilize seu terminal local autenticado via:
+   ```bash
+   az login
+   ```
+2. Clone o repositório oficial da entrega:
+   ```bash
+   git clone https://github.com/rodrigueszkkk/DevOps-Sprint03.git
+   cd DevOps-Sprint03
+   ```
+
+---
+
+### 7.2 Etapa 1: Provisionamento da Infraestrutura Base
+
+Execute o script de provisionamento passando seu RM e a região autorizada da Azure:
 
 ```bash
-# Autenticar na Azure
-az login
+bash scripts/01_setup_infra.sh <SEU_RM> <SUA_REGIAO>
+# Exemplo: bash scripts/01_setup_infra.sh 123456 eastus
+```
 
-# Executar deploy completo via Bash (Linux/macOS/Cloud Shell):
+**O que o script executa automaticamente:**
+- Registra os Resource Providers necessários (`Microsoft.Storage`, `Microsoft.KeyVault`, `Microsoft.ContainerRegistry`, `Microsoft.ContainerInstance`).
+- Cria o Resource Group `rg-pethealth-rm<RM>`.
+- Cria a Storage Account `storagerm<RM>` e o Azure File Share persistente `mysql-data-share` (quota de 5 GB).
+- Provisiona o Azure Key Vault `kv-pethealth-rm<RM>` e solicita de forma oculta no terminal as senhas de ROOT e do usuário da aplicação.
+- Cria o Azure Container Registry (ACR) `acrpethealthrm<RM>` com credenciais de administrador habilitadas.
+- Armazena todas as credenciais no Key Vault e exibe na tela os dados do ACR:
+  ```
+  ACR Name:     acrpethealthrm<RM>
+  ACR Username: acrpethealthrm<RM>
+  ACR Password: <SENHA_GERADA>
+  ```
+
+---
+
+### 7.3 Etapa 2: Build e Publicação das Imagens no ACR via GitHub Actions
+
+Como o Azure Cloud Shell opera em contêiner gerenciado sem o daemon do Docker, o build multi-stage das imagens é executado de forma rápida e automatizada na esteira do GitHub Actions:
+
+1. Acesse seu repositório no GitHub: `https://github.com/rodrigueszkkk/DevOps-Sprint03`
+2. Clique na aba **Actions**.
+3. No menu lateral esquerdo, selecione o workflow **"Build and Push Containers to ACR"**.
+4. Clique no botão **"Run workflow"** à direita e preencha os campos com os valores gerados na Etapa 1:
+   - **Nome do ACR:** Informe o nome exibido (ex: `acrpethealthrm<RM>`).
+   - **Usuário do ACR:** Informe o username exibido.
+   - **Senha do ACR:** Informe o password exibido.
+5. Clique em **"Run workflow"** (botão verde) e aguarde a conclusão (~2 minutos).
+6. A esteira compilará as imagens e fará o push direto para o seu ACR:
+   - `acrpethealthrm<RM>.azurecr.io/pethealth-mysql:v1`
+   - `acrpethealthrm<RM>.azurecr.io/pethealth-api:v1`
+
+> *(Opcional: Caso esteja executando em uma máquina local com Docker instalado e ativo, você pode executar alternativamente `bash scripts/02_build_push_acr.sh <SEU_RM> <SUA_REGIAO>`)*.
+
+---
+
+### 7.4 Etapa 3: Deploy do Banco de Dados MySQL no ACI
+
+Com as imagens disponíveis no ACR, retorne ao Cloud Shell e execute:
+
+```bash
+bash scripts/03_deploy_mysql_aci.sh <SEU_RM> <SUA_REGIAO>
+```
+
+**O que o script executa automaticamente:**
+- Recupera as chaves do Storage Account e as credenciais do ACR diretamente do Key Vault.
+- Provisiona o contêiner `aci-mysql-rm<RM>` no Azure Container Instances (porta 3306, 1 vCPU, 1.5 GB de RAM).
+- Monta o volume persistente do Azure Files em `/var/lib/mysql`.
+- Executa o script de inicialização (`script_bd.sql`) populando as tabelas `PETS` e `MEDICAL_RECORDS`.
+- Registra o FQDN público gerado no Key Vault e exibe ao final:
+  ```
+  MySQL ACI FQDN: mysql-rm<RM>.<regiao>.azurecontainer.io
+  ```
+
+---
+
+### 7.5 Etapa 4: Deploy da Aplicação .NET 8 no ACI
+
+No Cloud Shell, execute a etapa final para disponibilizar a API pública:
+
+```bash
+bash scripts/04_deploy_api_aci.sh <SEU_RM> <SUA_REGIAO>
+```
+
+**O que o script executa automaticamente:**
+- Recupera o FQDN do MySQL do Key Vault e monta a connection string de produção.
+- Grava o segredo `connection-string` de forma protegida no Azure Key Vault.
+- Provisiona o contêiner `aci-api-rm<RM>` no Azure Container Instances (porta 8080, 1 vCPU, 1 GB de RAM, usuário `app` non-root).
+- Injeta as variáveis de ambiente necessárias e aguarda a inicialização.
+- Exibe os endpoints públicos ativos:
+  ```
+  URL Base:     http://api-rm<RM>.<regiao>.azurecontainer.io:8080
+  Swagger UI:   http://api-rm<RM>.<regiao>.azurecontainer.io:8080/swagger
+  Health Check: http://api-rm<RM>.<regiao>.azurecontainer.io:8080/health
+  IP Público:   <IP_PUBLICO>
+  ```
+
+---
+
+### 7.6 Script Automatizado Tudo-em-Um (Ambiente Local com Docker)
+
+Caso possua Docker Desktop instalado localmente (Windows PowerShell ou Linux Bash), é possível executar o deploy do início ao fim com um único comando:
+
+```bash
+# Bash (Linux / macOS):
 bash scripts/deploy_all.sh <SEU_RM> <SUA_REGIAO>
-# Exemplo: bash scripts/deploy_all.sh 123456 eastus
 
-# Ou no Windows via PowerShell:
+# PowerShell (Windows):
 .\scripts\deploy_all.ps1 -RM <SEU_RM> -Location <SUA_REGIAO>
 ```
 
 ---
 
-### Opção B: Passo a Passo Manual com Azure CLI
+## 8. Roteiro de Validação do CRUD, Swagger e Persistência
 
-#### 1. Definir Variáveis
-```bash
-RM="<SEU_RM>"
-LOCATION="<SUA_REGIAO>" # Ex: eastus
-RESOURCE_GROUP="rg-pethealth-rm${RM}"
-STORAGE_ACCOUNT="storagerm${RM}"
-FILE_SHARE="mysql-data-share"
-KEY_VAULT="kv-pethealth-rm${RM}"
-ACR_NAME="acrpethealthrm${RM}"
-ACI_MYSQL="aci-mysql-rm${RM}"
-ACI_API="aci-api-rm${RM}"
-```
+### 8.1 Acesso via Navegador
 
-#### 2. Registrar Provedores e Criar Grupo de Recursos
-```bash
-az provider register --namespace Microsoft.Storage
-az provider register --namespace Microsoft.KeyVault
-az provider register --namespace Microsoft.ContainerRegistry
-az provider register --namespace Microsoft.ContainerInstance
-
-az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
-```
-
-#### 3. Provisionar Storage Account e Volume do MySQL
-```bash
-az storage account create --resource-group "$RESOURCE_GROUP" --name "$STORAGE_ACCOUNT" --location "$LOCATION" --sku Standard_LRS
-
-CONN_STR=$(az storage account show-connection-string --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query connectionString -o tsv)
-az storage share create --name "$FILE_SHARE" --account-name "$STORAGE_ACCOUNT" --connection-string "$CONN_STR" --quota 5
-```
-
-#### 4. Criar Key Vault e Armazenar Credenciais com Segurança
-```bash
-az keyvault create --name "$KEY_VAULT" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --enable-rbac-authorization false
-
-# Solicitar senhas no terminal de forma oculta
-read -s -p "Senha ROOT do MySQL: " MYSQL_ROOT_PASS; echo ""
-read -s -p "Senha do Usuario da App: " MYSQL_USER_PASS; echo ""
-
-az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-database" --value "pethealth_db"
-az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-user" --value "pethealth_user"
-az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-password" --value "$MYSQL_USER_PASS"
-az keyvault secret set --vault-name "$KEY_VAULT" --name "mysql-root-password" --value "$MYSQL_ROOT_PASS"
-```
-
-#### 5. Criar ACR e Publicar as Imagens
-```bash
-az acr create --resource-group "$RESOURCE_GROUP" --name "$ACR_NAME" --sku Basic --location "$LOCATION" --admin-enabled true
-
-ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
-ACR_USER=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
-ACR_PASS=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
-
-# Salvar credenciais do ACR no Key Vault
-az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-login-server" --value "$ACR_SERVER"
-az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-username" --value "$ACR_USER"
-az keyvault secret set --vault-name "$KEY_VAULT" --name "acr-password" --value "$ACR_PASS"
-
-# Build das imagens diretamente na nuvem (Cloud Build):
-az acr build --registry "$ACR_NAME" --image "pethealth-mysql:v1" --file database/Dockerfile.mysql database/
-az acr build --registry "$ACR_NAME" --image "pethealth-api:v1" --file Dockerfile .
-```
-
-#### 6. Provisionar o Banco de Dados MySQL no ACI
-```bash
-STORAGE_KEY=$(az storage account keys list --resource-group "$RESOURCE_GROUP" --account-name "$STORAGE_ACCOUNT" --query "[0].value" -o tsv)
-
-az container create \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$ACI_MYSQL" \
-  --location "$LOCATION" \
-  --image "$ACR_SERVER/pethealth-mysql:v1" \
-  --cpu 1 --memory 1.5 \
-  --os-type Linux \
-  --dns-name-label "mysql-rm${RM}" \
-  --ports 3306 \
-  --registry-login-server "$ACR_SERVER" \
-  --registry-username "$ACR_USER" \
-  --registry-password "$ACR_PASS" \
-  --azure-file-volume-account-name "$STORAGE_ACCOUNT" \
-  --azure-file-volume-account-key "$STORAGE_KEY" \
-  --azure-file-volume-share-name "$FILE_SHARE" \
-  --azure-file-volume-mount-path "/var/lib/mysql" \
-  --environment-variables \
-    MYSQL_DATABASE="pethealth_db" \
-    MYSQL_USER="pethealth_user" \
-    MYSQL_PASSWORD="$MYSQL_USER_PASS" \
-    MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASS" \
-  --restart-policy Always
-```
-
-#### 7. Provisionar a Aplicação .NET no ACI
-```bash
-MYSQL_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL" --query ipAddress.fqdn -o tsv)
-CONN_STRING="Server=${MYSQL_FQDN};Port=3306;Database=pethealth_db;User=pethealth_user;Password=${MYSQL_USER_PASS};"
-
-az keyvault secret set --vault-name "$KEY_VAULT" --name "connection-string" --value "$CONN_STRING"
-
-az container create \
-  --resource-group "$RESOURCE_GROUP" \
-  --name "$ACI_API" \
-  --location "$LOCATION" \
-  --image "$ACR_SERVER/pethealth-api:v1" \
-  --cpu 1 --memory 1 \
-  --os-type Linux \
-  --dns-name-label "api-rm${RM}" \
-  --ports 8080 \
-  --registry-login-server "$ACR_SERVER" \
-  --registry-username "$ACR_USER" \
-  --registry-password "$ACR_PASS" \
-  --environment-variables \
-    ConnectionStrings__DefaultConnection="$CONN_STRING" \
-    ASPNETCORE_ENVIRONMENT="Development" \
-  --restart-policy Always
-```
+Abra o navegador e acesse a documentação interativa Swagger no endereço retornado:
+- **Swagger UI:** `http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/swagger`
+- **Health Check:** `http://api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io:8080/health` (retorna HTTP 200 `Healthy`)
 
 ---
 
-## 8. Roteiro de Validação do CRUD e Persistência
+### 8.2 Validação das Operações CRUD (Swagger ou cURL)
 
-Obtenha o endereço FQDN da API:
+Você pode testar diretamente pelos botões **"Try it out"** na interface do Swagger ou via terminal `curl`:
+
+#### 1. Consulta Inicial (READ - GET)
 ```bash
-API_URL=$(az container show --resource-group "rg-pethealth-rm${RM}" --name "aci-api-rm${RM}" --query ipAddress.fqdn -o tsv)
-echo "Swagger: http://${API_URL}:8080/swagger"
-```
+API_URL="api-rm<SEU_RM>.<SUA_REGIAO>.azurecontainer.io"
 
-### Operações CRUD via `curl`:
-
-#### 1. Consulta Inicial (READ)
-```bash
 curl -X GET "http://${API_URL}:8080/api/pets"
 curl -X GET "http://${API_URL}:8080/api/medicalrecords"
 ```
 
-#### 2. Inserção (CREATE)
+#### 2. Inserção (CREATE - POST)
 ```bash
-# Inserir Pet:
+# Cadastrar novo Pet:
 curl -X POST "http://${API_URL}:8080/api/pets" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Bob",
-    "breed": "Beagle",
-    "age": 3,
-    "tutorName": "Carla Dias",
-    "needsPostOpCare": false
+    "name": "Thor",
+    "breed": "Golden Retriever",
+    "age": 4,
+    "tutorName": "Mariana Silva",
+    "needsPostOpCare": true
   }'
 
-# Inserir Prontuário para o Pet criado:
+# Cadastrar Prontuário para o Pet criado (ex: Id 3):
 curl -X POST "http://${API_URL}:8080/api/medicalrecords" \
   -H "Content-Type: application/json" \
   -d '{
     "petId": 3,
-    "description": "Exame oftalmológico e limpeza auricular",
-    "diagnosis": "Leve conjuntivite alérgica",
-    "treatment": "Colírio anti-inflamatório 2 gotas a cada 12 horas",
-    "veterinarianName": "Dra. Paula Rocha - CRMV/SP 55210"
+    "description": "Consulta de rotina pós-cirúrgica",
+    "diagnosis": "Boa cicatrização dos pontos",
+    "treatment": "Manter repouso por mais 3 dias",
+    "veterinarianName": "Dr. Fernando Costa - CRMV/SP 43210"
   }'
 ```
 
-#### 3. Atualização (UPDATE)
+#### 3. Atualização (UPDATE - PUT)
 ```bash
 curl -X PUT "http://${API_URL}:8080/api/pets/3" \
   -H "Content-Type: application/json" \
   -d '{
     "id": 3,
-    "name": "Bob Atualizado",
-    "breed": "Beagle",
-    "age": 4,
-    "tutorName": "Carla Dias",
-    "needsPostOpCare": true
+    "name": "Thor Atualizado",
+    "breed": "Golden Retriever",
+    "age": 5,
+    "tutorName": "Mariana Silva",
+    "needsPostOpCare": false
   }'
 ```
 
@@ -359,20 +347,43 @@ curl -X PUT "http://${API_URL}:8080/api/pets/3" \
 curl -X DELETE "http://${API_URL}:8080/api/pets/3"
 ```
 
-#### 5. Evidência no Banco de Dados via SELECT
-Conecte diretamente no container do MySQL:
+---
+
+### 8.3 Evidência Direta no Banco de Dados (Sem Cortes)
+
+Para comprovar que as operações realizadas no Swagger foram realmente persistidas no banco relacional, execute no Azure Cloud Shell:
+
 ```bash
 az container exec \
-  --resource-group "rg-pethealth-rm${RM}" \
-  --name "aci-mysql-rm${RM}" \
+  --resource-group "rg-pethealth-rm<SEU_RM>" \
+  --name "aci-mysql-rm<SEU_RM>" \
   --exec-command "mysql -upethealth_user -p<SUA_SENHA> pethealth_db -e 'SELECT * FROM PETS; SELECT * FROM MEDICAL_RECORDS;'"
 ```
 
 ---
 
-## 9. Destruição de Recursos (FinOps)
+## 9. FinOps e Gestão de Recursos (Pausar ou Destruir)
 
-Ao concluir os testes e gravação do vídeo, execute o script de limpeza:
+Contêineres no Azure Container Instances (ACI) tarifam por segundo de CPU e memória alocados enquanto estiverem em execução.
+
+### Pausar Contêineres (Sem perder dados do banco)
+Durante pausas de estudo ou antes da gravação do vídeo, pause os contêineres para interromper o consumo de créditos:
+```bash
+az container stop --resource-group "rg-pethealth-rm<SEU_RM>" --name "aci-api-rm<SEU_RM>"
+az container stop --resource-group "rg-pethealth-rm<SEU_RM>" --name "aci-mysql-rm<SEU_RM>"
+```
+
+Para reativar rapidamente o ambiente quando for apresentar ou gravar:
+```bash
+az container start --resource-group "rg-pethealth-rm<SEU_RM>" --name "aci-mysql-rm<SEU_RM>"
+az container start --resource-group "rg-pethealth-rm<SEU_RM>" --name "aci-api-rm<SEU_RM>"
+```
+*(Os dados permanecem 100% salvos no volume persistente do Azure Files).*
+
+---
+
+### Destruição Total dos Recursos
+Ao finalizar a entrega da Sprint e envio do vídeo, exclua todos os recursos criados para zerar quaisquer cobranças residuais:
 
 ```bash
 bash scripts/05_cleanup.sh <SEU_RM>
@@ -380,4 +391,6 @@ bash scripts/05_cleanup.sh <SEU_RM>
 Ou via Azure CLI direto:
 ```bash
 az group delete --name "rg-pethealth-rm<SEU_RM>" --yes --no-wait
+az keyvault purge --name "kv-pethealth-rm<SEU_RM>" --no-wait
 ```
+

@@ -23,16 +23,9 @@ fi
 
 RESOURCE_GROUP="rg-pethealth-rm${RM}"
 
-echo "=================================================================="
-echo "ATENÇÃO: Este comando excluirá TODOS os recursos do grupo '$RESOURCE_GROUP'."
-echo "=================================================================="
-
-read -p "Deseja realmente prosseguir com a exclusão? (s/N): " CONFIRM
+read -p "Deseja excluir o grupo '$RESOURCE_GROUP'? (s/N): " CONFIRM
 if [[ "$CONFIRM" =~ ^[sS]$ ]]; then
-    echo "Excluindo Resource Group '$RESOURCE_GROUP'..."
     az group delete --name "$RESOURCE_GROUP" --yes --no-wait
     az keyvault purge --name "kv-pethealth-rm${RM}" --no-wait 2>/dev/null || true
-    echo "Exclusão solicitada com sucesso em background."
-else
-    echo "Operação cancelada."
 fi
+

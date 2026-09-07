@@ -46,12 +46,6 @@ $AciApiName = "aci-api-rm$RM"
 $MysqlDns = "mysql-rm$RM"
 $ApiDns = "api-rm$RM"
 
-Write-Host "==================================================================" -ForegroundColor Cyan
-Write-Host "  FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3" -ForegroundColor Cyan
-Write-Host "  DEPLOY 100% AZURE CLI (ACR + ACI) - POWERSHELL" -ForegroundColor Cyan
-Write-Host "  RM: $RM | Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
-Write-Host "==================================================================" -ForegroundColor Cyan
-
 if (-not $env:MYSQL_ROOT_PASS) {
     $mysqlRootSec = Read-Host "Defina a senha de ROOT do MySQL para o Key Vault" -AsSecureString
     $bstrRoot = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlRootSec)
@@ -68,27 +62,22 @@ if (-not $env:MYSQL_USER_PASS) {
     $plainUser = $env:MYSQL_USER_PASS
 }
 
-Write-Host "`n[1/6] Registrando Resource Providers..." -ForegroundColor Yellow
 az provider register --namespace Microsoft.Storage
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.ContainerInstance
 
-Write-Host "`n[2/6] Criando/Verificando Resource Group..." -ForegroundColor Yellow
 $rgExists = az group exists --name $ResourceGroup
 if ($rgExists -ne "true") {
     az group create --name $ResourceGroup --location $Location
 }
 
-Write-Host "`n[3/6] Criando Storage Account e File Share para o volume do banco..." -ForegroundColor Yellow
 az storage account create --resource-group $ResourceGroup --name $StorageAccount --location $Location --sku Standard_LRS
 $storageConnString = az storage account show-connection-string --name $StorageAccount --resource-group $ResourceGroup --query connectionString -o tsv
 az storage share create --name $FileShareName --account-name $StorageAccount --connection-string $storageConnString --quota 5
 
-Write-Host "`n[4/6] Criando Key Vault e gravando credenciais seguras..." -ForegroundColor Yellow
 $deletedVault = az keyvault list-deleted --query "[?name=='$KeyVaultName'].name" -o tsv 2>$null
 if ($deletedVault -eq $KeyVaultName) {
-    Write-Host "Recuperando Key Vault '$KeyVaultName' do estado soft-delete..." -ForegroundColor Yellow
     az keyvault recover --name $KeyVaultName --resource-group $ResourceGroup --location $Location
 } else {
     az keyvault create --name $KeyVaultName --resource-group $ResourceGroup --location $Location --enable-rbac-authorization false
@@ -101,7 +90,6 @@ az keyvault secret set --vault-name $KeyVaultName --name "mysql-user" --value "p
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-password" --value $plainUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "mysql-root-password" --value $plainRoot -o none
 
-Write-Host "`n[5/6] Criando ACR e compilando imagens com Docker..." -ForegroundColor Yellow
 az acr create --resource-group $ResourceGroup --name $AcrName --sku Basic --location $Location --admin-enabled true
 
 $acrLoginServer = az acr show --name $AcrName --query loginServer -o tsv
@@ -112,18 +100,15 @@ az keyvault secret set --vault-name $KeyVaultName --name "acr-login-server" --va
 az keyvault secret set --vault-name $KeyVaultName --name "acr-username" --value $acrUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "acr-password" --value $acrPass -o none
 
-Write-Host "Autenticando Docker no ACR ($acrLoginServer)..." -ForegroundColor Yellow
 echo $acrPass | docker login $acrLoginServer -u $acrUser --password-stdin
 
-Write-Host "Compilando imagem MySQL com DDL..." -ForegroundColor Yellow
 docker build -t "$acrLoginServer/pethealth-mysql:v1" -f "$rootDir\database\Dockerfile.mysql" "$rootDir\database"
 docker push "$acrLoginServer/pethealth-mysql:v1"
 
-Write-Host "Compilando imagem API .NET 8 (Non-root)..." -ForegroundColor Yellow
 docker build -t "$acrLoginServer/pethealth-api:v1" -f "$rootDir\Dockerfile" "$rootDir"
 docker push "$acrLoginServer/pethealth-api:v1"
 
-Write-Host "`n[6/6] Provisionando Containers no Azure Container Instances..." -ForegroundColor Yellow
+
 $storageKey = az storage account keys list --resource-group $ResourceGroup --account-name $StorageAccount --query "[0].value" -o tsv
 
 az container delete --resource-group $ResourceGroup --name $AciMysqlName --yes 2>$null
@@ -149,7 +134,7 @@ az container create `
         MYSQL_USER="pethealth_user" `
         MYSQL_PASSWORD="$plainUser" `
         MYSQL_ROOT_PASSWORD="$plainRoot" `
-    --restart-policy Always
+    --restart-policy Always -o none
 
 Start-Sleep -Seconds 15
 
@@ -174,16 +159,14 @@ az container create `
     --environment-variables `
         ConnectionStrings__DefaultConnection=$connString `
         ASPNETCORE_ENVIRONMENT="Development" `
-    --restart-policy Always
+    --restart-policy Always -o none
 
 Start-Sleep -Seconds 15
 
 $apiFqdn = az container show --resource-group $ResourceGroup --name $AciApiName --query ipAddress.fqdn -o tsv
 $apiIp = az container show --resource-group $ResourceGroup --name $AciApiName --query ipAddress.ip -o tsv
 
-Write-Host "`n==================================================================" -ForegroundColor Green
-Write-Host "DEPLOY FINALIZADO COM SUCESSO NA AZURE!" -ForegroundColor Green
-Write-Host "Swagger UI:   http://${apiFqdn}:8080/swagger" -ForegroundColor Green
-Write-Host "Health Check: http://${apiFqdn}:8080/health" -ForegroundColor Green
-Write-Host "IP Público:   $apiIp" -ForegroundColor Green
-Write-Host "==================================================================" -ForegroundColor Green
+Write-Host "Swagger UI:   http://${apiFqdn}:8080/swagger"
+Write-Host "Health Check: http://${apiFqdn}:8080/health"
+Write-Host "IP Público:   $apiIp"
+

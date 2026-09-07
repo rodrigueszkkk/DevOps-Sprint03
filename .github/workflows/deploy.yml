@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       acr_name:
-        description: 'Nome do ACR (ex: acrpethealthrm561760)'
+        description: 'Nome do ACR'
         required: false
         default: ''
       acr_username:

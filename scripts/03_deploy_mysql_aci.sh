@@ -36,12 +36,6 @@ KEY_VAULT_NAME="kv-pethealth-rm${RM}"
 ACI_MYSQL_NAME="aci-mysql-rm${RM}"
 DNS_LABEL="mysql-rm${RM}"
 
-echo "=================================================================="
-echo "Iniciando Etapa 03: Deploy do Banco de Dados no Azure Container Instance"
-echo "ACI Name: $ACI_MYSQL_NAME | DNS Label: $DNS_LABEL"
-echo "=================================================================="
-
-echo "Recuperando credenciais de armazenamento..."
 STORAGE_KEY=$(az storage account keys list \
     --resource-group "$RESOURCE_GROUP" \
     --account-name "$STORAGE_ACCOUNT" \
@@ -65,12 +59,10 @@ MYSQL_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysq
 MYSQL_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --query value -o tsv)
 MYSQL_ROOT_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --query value -o tsv)
 
-if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" &>/dev/null; then
-    echo "Instância anterior '$ACI_MYSQL_NAME' encontrada. Excluindo..."
-    az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --yes
+if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" >/dev/null 2>&1; then
+    az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --yes -o none
 fi
 
-echo "Provisionando container MySQL no ACI..."
 az container create \
     --resource-group "$RESOURCE_GROUP" \
     --name "$ACI_MYSQL_NAME" \
@@ -93,19 +85,11 @@ az container create \
         MYSQL_USER="$MYSQL_USER" \
         MYSQL_PASSWORD="$MYSQL_PASS" \
         MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASS" \
-    --restart-policy Always
+    --restart-policy Always -o none
 
-echo "Aguardando inicialização do container de banco de dados..."
-sleep 20
+sleep 15
 
 MYSQL_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --query ipAddress.fqdn -o tsv)
-MYSQL_IP=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_MYSQL_NAME" --query ipAddress.ip -o tsv)
-
-echo "Salvando FQDN do banco no Key Vault..."
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-fqdn" --value "$MYSQL_FQDN" -o none
 
-echo "=================================================================="
-echo "Etapa 03 concluída com sucesso!"
-echo "MySQL FQDN: $MYSQL_FQDN (IP: $MYSQL_IP)"
-echo "Porta: 3306 | Base: $MYSQL_DB"
-echo "=================================================================="
+echo "MySQL ACI FQDN: $MYSQL_FQDN"

@@ -34,10 +34,6 @@ KEY_VAULT_NAME="kv-pethealth-rm${RM}"
 ACI_API_NAME="aci-api-rm${RM}"
 DNS_LABEL="api-rm${RM}"
 
-echo "=================================================================="
-echo "Iniciando Etapa 04: Deploy da Aplicação .NET no Azure Container Instance"
-echo "ACI API Name: $ACI_API_NAME | DNS Label: $DNS_LABEL"
-echo "=================================================================="
 
 if ! az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" >/dev/null 2>&1; then
     ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
@@ -58,15 +54,12 @@ MYSQL_USER=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysq
 MYSQL_PASS=$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --query value -o tsv)
 
 CONNECTION_STRING="Server=${MYSQL_FQDN};Port=3306;Database=${MYSQL_DB};User=${MYSQL_USER};Password=${MYSQL_PASS};"
-echo "Registrando connection string segura no Key Vault..."
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "connection-string" --value "$CONNECTION_STRING" -o none
 
-if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" &>/dev/null; then
-    echo "Instância anterior '$ACI_API_NAME' encontrada. Excluindo..."
-    az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --yes
+if az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" >/dev/null 2>&1; then
+    az container delete --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --yes -o none
 fi
 
-echo "Criando container da API .NET no ACI..."
 az container create \
     --resource-group "$RESOURCE_GROUP" \
     --name "$ACI_API_NAME" \
@@ -83,19 +76,15 @@ az container create \
     --environment-variables \
         "ConnectionStrings__DefaultConnection"="$CONNECTION_STRING" \
         "ASPNETCORE_ENVIRONMENT"="Development" \
-    --restart-policy Always
+    --restart-policy Always -o none
 
-echo "Aguardando inicialização da API..."
 sleep 15
 
 API_FQDN=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --query ipAddress.fqdn -o tsv)
 API_IP=$(az container show --resource-group "$RESOURCE_GROUP" --name "$ACI_API_NAME" --query ipAddress.ip -o tsv)
 
-echo "=================================================================="
-echo "APLICAÇÃO PUBLICADA COM SUCESSO NA AZURE!"
-echo "=================================================================="
 echo "URL Base:     http://${API_FQDN}:8080"
 echo "Swagger UI:   http://${API_FQDN}:8080/swagger"
 echo "Health Check: http://${API_FQDN}:8080/health"
 echo "IP Público:   ${API_IP}"
-echo "=================================================================="
+

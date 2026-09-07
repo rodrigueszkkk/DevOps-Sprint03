@@ -34,71 +34,49 @@ FILE_SHARE_NAME="mysql-data-share"
 KEY_VAULT_NAME="kv-pethealth-rm${RM}"
 ACR_NAME="acrpethealthrm${RM}"
 
-echo "=================================================================="
-echo "Iniciando Etapa 01: Infraestrutura Base Azure"
-echo "Grupo de Recursos: $RESOURCE_GROUP | Região: $LOCATION"
-echo "=================================================================="
-
-echo "Registrando Resource Providers..."
 az provider register --namespace Microsoft.Storage
 az provider register --namespace Microsoft.KeyVault
 az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.ContainerInstance
 
-if ! az group show --name "$RESOURCE_GROUP" &>/dev/null; then
-    echo "Criando Resource Group '$RESOURCE_GROUP' em '$LOCATION'..."
-    az group create --name "$RESOURCE_GROUP" --location "$LOCATION"
-else
-    echo "Resource Group '$RESOURCE_GROUP' já existe."
+if ! az group show --name "$RESOURCE_GROUP" >/dev/null 2>&1; then
+    az group create --name "$RESOURCE_GROUP" --location "$LOCATION" -o none
 fi
 
-if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-    echo "Criando Storage Account '$STORAGE_ACCOUNT'..."
+if ! az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
     az storage account create \
         --resource-group "$RESOURCE_GROUP" \
         --name "$STORAGE_ACCOUNT" \
         --location "$LOCATION" \
-        --sku Standard_LRS
-else
-    echo "Storage Account '$STORAGE_ACCOUNT' já existe."
+        --sku Standard_LRS -o none
 fi
 
-echo "Obtendo connection string do Storage Account..."
 STORAGE_CONN_STRING=$(az storage account show-connection-string \
     --name "$STORAGE_ACCOUNT" \
     --resource-group "$RESOURCE_GROUP" \
     --query connectionString -o tsv)
 
-echo "Criando Azure File Share '$FILE_SHARE_NAME' para persistência do banco..."
-if ! az storage share exists --name "$FILE_SHARE_NAME" --account-name "$STORAGE_ACCOUNT" --connection-string "$STORAGE_CONN_STRING" --output tsv | grep -i true &>/dev/null; then
+if ! az storage share exists --name "$FILE_SHARE_NAME" --account-name "$STORAGE_ACCOUNT" --connection-string "$STORAGE_CONN_STRING" --output tsv | grep -i true >/dev/null 2>&1; then
     az storage share create \
         --name "$FILE_SHARE_NAME" \
         --account-name "$STORAGE_ACCOUNT" \
         --connection-string "$STORAGE_CONN_STRING" \
-        --quota 5
-    echo "Compartilhamento '$FILE_SHARE_NAME' criado com sucesso."
-else
-    echo "Compartilhamento '$FILE_SHARE_NAME' já existe."
+        --quota 5 -o none
 fi
 
-if ! az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+if ! az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
     if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME'].name" -o tsv 2>/dev/null | grep -q "$KEY_VAULT_NAME"; then
-        echo "Key Vault '$KEY_VAULT_NAME' encontrado em soft-delete. Recuperando..."
-        az keyvault recover --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION"
+        az keyvault recover --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" -o none
     else
-        echo "Criando Key Vault '$KEY_VAULT_NAME'..."
         az keyvault create \
             --name "$KEY_VAULT_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --location "$LOCATION" \
-            --enable-rbac-authorization false
+            --enable-rbac-authorization false -o none
     fi
-else
-    echo "Key Vault '$KEY_VAULT_NAME' já existe."
 fi
 
 CURRENT_USER=$(az account show --query user.name -o tsv)
-echo "Configurando política de acesso no Key Vault para '$CURRENT_USER'..."
 az keyvault set-policy \
     --name "$KEY_VAULT_NAME" \
     --resource-group "$RESOURCE_GROUP" \
@@ -115,25 +93,20 @@ if [ -z "$MYSQL_USER_PASS" ]; then
     echo ""
 fi
 
-echo "Gravando credenciais e segredos no Key Vault..."
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-database" --value "pethealth_db" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-user" --value "pethealth_user" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-password" --value "$MYSQL_USER_PASS" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "mysql-root-password" --value "$MYSQL_ROOT_PASS" -o none
 
-if ! az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-    echo "Criando Azure Container Registry '$ACR_NAME'..."
+if ! az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
     az acr create \
         --resource-group "$RESOURCE_GROUP" \
         --name "$ACR_NAME" \
         --sku Basic \
         --location "$LOCATION" \
-        --admin-enabled true
-else
-    echo "ACR '$ACR_NAME' já existe."
+        --admin-enabled true -o none
 fi
 
-echo "Obtendo credenciais do ACR..."
 ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
 ACR_USERNAME=$(az acr credential show --name "$ACR_NAME" --query username -o tsv)
 ACR_PASSWORD=$(az acr credential show --name "$ACR_NAME" --query passwords[0].value -o tsv)
@@ -142,10 +115,6 @@ az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-login-server" 
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-username" --value "$ACR_USERNAME" -o none
 az keyvault secret set --vault-name "$KEY_VAULT_NAME" --name "acr-password" --value "$ACR_PASSWORD" -o none
 
-echo "=================================================================="
-echo "Etapa 01 concluída com sucesso!"
-echo "Storage Account: $STORAGE_ACCOUNT | Key Vault: $KEY_VAULT_NAME"
-echo "ACR Name:        $ACR_NAME ($ACR_LOGIN_SERVER)"
-echo "ACR Username:    $ACR_USERNAME"
-echo "ACR Password:    $ACR_PASSWORD"
-echo "=================================================================="
+echo "ACR Name:     $ACR_NAME"
+echo "ACR Username: $ACR_USERNAME"
+echo "ACR Password: $ACR_PASSWORD"

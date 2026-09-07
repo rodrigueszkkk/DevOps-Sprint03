@@ -29,19 +29,8 @@ elif [ -z "$LOCATION" ]; then
     LOCATION="${LOCATION:-eastus}"
 fi
 
-echo "=================================================================="
-echo "   FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3"
-echo "   DEPLOY AUTOMATIZADO 100% AZURE CLI (ACR + ACI)"
-echo "   RM: $RM | Região: $LOCATION"
-echo "=================================================================="
-
 bash "$DIR/01_setup_infra.sh" "$RM" "$LOCATION"
 bash "$DIR/02_build_push_acr.sh" "$RM" "$LOCATION"
 bash "$DIR/03_deploy_mysql_aci.sh" "$RM" "$LOCATION"
 bash "$DIR/04_deploy_api_aci.sh" "$RM" "$LOCATION"
 
-echo ""
-echo "=================================================================="
-echo "DEPLOY GERAL FINALIZADO COM SUCESSO!"
-echo "Acesse a documentação no README.md para o roteiro de testes e gravação do vídeo."
-echo "=================================================================="
