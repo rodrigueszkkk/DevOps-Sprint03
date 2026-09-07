@@ -86,7 +86,13 @@ $storageConnString = az storage account show-connection-string --name $StorageAc
 az storage share create --name $FileShareName --account-name $StorageAccount --connection-string $storageConnString --quota 5
 
 Write-Host "`n[4/6] Criando Key Vault e gravando credenciais seguras..." -ForegroundColor Yellow
-az keyvault create --name $KeyVaultName --resource-group $ResourceGroup --location $Location --enable-rbac-authorization false
+$deletedVault = az keyvault list-deleted --query "[?name=='$KeyVaultName'].name" -o tsv 2>$null
+if ($deletedVault -eq $KeyVaultName) {
+    Write-Host "Recuperando Key Vault '$KeyVaultName' do estado soft-delete..." -ForegroundColor Yellow
+    az keyvault recover --name $KeyVaultName --resource-group $ResourceGroup --location $Location
+} else {
+    az keyvault create --name $KeyVaultName --resource-group $ResourceGroup --location $Location --enable-rbac-authorization false
+}
 $currentUser = az account show --query user.name -o tsv
 az keyvault set-policy --name $KeyVaultName --resource-group $ResourceGroup --upn $currentUser --secret-permissions get list set delete recover backup restore purge
 

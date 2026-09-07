@@ -81,12 +81,17 @@ else
 fi
 
 if ! az keyvault show --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" &>/dev/null; then
-    echo "Criando Key Vault '$KEY_VAULT_NAME'..."
-    az keyvault create \
-        --name "$KEY_VAULT_NAME" \
-        --resource-group "$RESOURCE_GROUP" \
-        --location "$LOCATION" \
-        --enable-rbac-authorization false
+    if az keyvault list-deleted --query "[?name=='$KEY_VAULT_NAME'].name" -o tsv 2>/dev/null | grep -q "$KEY_VAULT_NAME"; then
+        echo "Key Vault '$KEY_VAULT_NAME' encontrado em soft-delete. Recuperando..."
+        az keyvault recover --name "$KEY_VAULT_NAME" --resource-group "$RESOURCE_GROUP" --location "$LOCATION"
+    else
+        echo "Criando Key Vault '$KEY_VAULT_NAME'..."
+        az keyvault create \
+            --name "$KEY_VAULT_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --location "$LOCATION" \
+            --enable-rbac-authorization false
+    fi
 else
     echo "Key Vault '$KEY_VAULT_NAME' já existe."
 fi
