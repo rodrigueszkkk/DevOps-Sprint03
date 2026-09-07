@@ -14,6 +14,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$rootDir = Split-Path -Parent $PSScriptRoot
+
+# 1. Carregar do arquivo local .env.azure se existir
+if (-not $RM -or -not $Location) {
+    $envAzurePath = Join-Path $rootDir ".env.azure"
+    if (Test-Path $envAzurePath) {
+        Get-Content $envAzurePath | ForEach-Object {
+            if ($_ -match '^\s*([^#=]+)\s*=\s*(.*)$') {
+                $varName = $matches[1].Trim()
+                $varVal = $matches[2].Trim()
+                if ($varName -eq "RM" -and -not $RM) { $RM = $varVal }
+                if ($varName -eq "LOCATION" -and -not $Location) { $Location = $varVal }
+            }
+        }
+    }
+}
+
+# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if (-not $RM) {
     $RM = Read-Host "Informe seu RM (somente números)"
 }
@@ -40,18 +58,25 @@ $ApiDns = "api-rm$RM"
 Write-Host "==================================================================" -ForegroundColor Cyan
 Write-Host "  FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3" -ForegroundColor Cyan
 Write-Host "  DEPLOY 100% AZURE CLI (ACR + ACI) - POWERSHELL" -ForegroundColor Cyan
-Write-Host "  Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
+Write-Host "  RM: $RM | Região: $Location | Grupo: $ResourceGroup" -ForegroundColor Cyan
 Write-Host "==================================================================" -ForegroundColor Cyan
 
-# Leitura segura das senhas
-$mysqlRootSec = Read-Host "Defina a senha de ROOT do MySQL para o Key Vault" -AsSecureString
-$mysqlUserSec = Read-Host "Defina a senha do USUÁRIO da aplicação para o Key Vault" -AsSecureString
+# Leitura segura das senhas caso não estejam em variáveis
+if (-not $env:MYSQL_ROOT_PASS) {
+    $mysqlRootSec = Read-Host "Defina a senha de ROOT do MySQL para o Key Vault" -AsSecureString
+    $bstrRoot = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlRootSec)
+    $plainRoot = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrRoot)
+} else {
+    $plainRoot = $env:MYSQL_ROOT_PASS
+}
 
-$bstrRoot = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlRootSec)
-$plainRoot = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrRoot)
-
-$bstrUser = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlUserSec)
-$plainUser = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrUser)
+if (-not $env:MYSQL_USER_PASS) {
+    $mysqlUserSec = Read-Host "Defina a senha do USUÁRIO da aplicação para o Key Vault" -AsSecureString
+    $bstrUser = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($mysqlUserSec)
+    $plainUser = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($bstrUser)
+} else {
+    $plainUser = $env:MYSQL_USER_PASS
+}
 
 # 1. Registrar Providers
 Write-Host "`n[1/6] Registrando Resource Providers..." -ForegroundColor Yellow
@@ -95,8 +120,6 @@ $acrPass = az acr credential show --name $AcrName --query passwords[0].value -o 
 az keyvault secret set --vault-name $KeyVaultName --name "acr-login-server" --value $acrLoginServer -o none
 az keyvault secret set --vault-name $KeyVaultName --name "acr-username" --value $acrUser -o none
 az keyvault secret set --vault-name $KeyVaultName --name "acr-password" --value $acrPass -o none
-
-$rootDir = Split-Path -Parent $PSScriptRoot
 
 Write-Host "Realizando Cloud Build da imagem MySQL..." -ForegroundColor Yellow
 az acr build --registry $AcrName --image "pethealth-mysql:v1" --file "$rootDir\database\Dockerfile.mysql" "$rootDir\database"

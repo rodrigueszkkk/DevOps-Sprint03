@@ -6,9 +6,20 @@
 
 set -e
 
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$DIR/.." && pwd)"
+
+# 1. Carregar do arquivo local .env.azure se existir
+if [ -f "$ROOT_DIR/.env.azure" ]; then
+    set -a
+    source "$ROOT_DIR/.env.azure"
+    set +a
+fi
+
+# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
-else
+elif [ -z "$RM" ]; then
     read -p "Informe seu RM (somente números): " RM
 fi
 
@@ -19,17 +30,15 @@ fi
 
 if [ -n "$2" ]; then
     LOCATION="$2"
-else
+elif [ -z "$LOCATION" ]; then
     read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
     LOCATION="${LOCATION:-eastus}"
 fi
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 echo "=================================================================="
 echo "   FIAP - DEVOPS TOOLS & CLOUD COMPUTING - SPRINT 3"
 echo "   DEPLOY AUTOMATIZADO 100% AZURE CLI (ACR + ACI)"
-echo "   Região: $LOCATION"
+echo "   RM: $RM | Região: $LOCATION"
 echo "=================================================================="
 
 # Etapa 1: Infraestrutura Base

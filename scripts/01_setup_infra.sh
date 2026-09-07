@@ -6,10 +6,19 @@
 
 set -e
 
-# Obtenção de parâmetros (via argumento ou prompt interativo seguro)
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# 1. Carregar do arquivo local .env.azure se existir
+if [ -f "$ROOT_DIR/.env.azure" ]; then
+    set -a
+    source "$ROOT_DIR/.env.azure"
+    set +a
+fi
+
+# 2. Resolução de parâmetros: Argumento > .env.azure > Prompt interativo
 if [ -n "$1" ]; then
     RM="$1"
-else
+elif [ -z "$RM" ]; then
     read -p "Informe seu RM (somente números): " RM
 fi
 
@@ -20,7 +29,7 @@ fi
 
 if [ -n "$2" ]; then
     LOCATION="$2"
-else
+elif [ -z "$LOCATION" ]; then
     read -p "Informe a região da Azure [padrão: eastus]: " LOCATION
     LOCATION="${LOCATION:-eastus}"
 fi
@@ -105,12 +114,12 @@ az keyvault set-policy \
 
 # 7. Definição segura das senhas do Banco de Dados
 if [ -z "$MYSQL_ROOT_PASS" ]; then
-    read -s -p "Defina a senha de ROOT do MySQL: " MYSQL_ROOT_PASS
+    read -s -p "Defina a senha de ROOT do MySQL para o Key Vault: " MYSQL_ROOT_PASS
     echo ""
 fi
 
 if [ -z "$MYSQL_USER_PASS" ]; then
-    read -s -p "Defina a senha do USUÁRIO da aplicação: " MYSQL_USER_PASS
+    read -s -p "Defina a senha do USUÁRIO da aplicação para o Key Vault: " MYSQL_USER_PASS
     echo ""
 fi
 
