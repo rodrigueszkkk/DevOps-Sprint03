@@ -11,7 +11,7 @@ Repositório acadêmico desenvolvido para a **3ª Sprint da disciplina DevOps To
 
 ## 👥 Identificação do Aluno / Grupo
 
-- **Nome Completo:** [Nome do Integrante] | **RM:** [Seu RM]
+- **Nome Completo:** Kaiky Pereira | **RM:564578** | Leandro Guarido | **RM561760:** | Gabriel Solano | **RM562325:**
 - **Repositório GitHub:** [https://github.com/rodrigueszkkk/DevOps-Sprint03.git](https://github.com/rodrigueszkkk/DevOps-Sprint03.git)
 - **Vídeo Demonstrativo no YouTube:** [Link do Vídeo](https://www.youtube.com/watch?v=SEU_ID_DO_VIDEO)
 
